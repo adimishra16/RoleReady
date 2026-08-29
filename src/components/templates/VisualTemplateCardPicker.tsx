@@ -31,7 +31,7 @@ export const PICKER_SAMPLE_RESUME: ResumeData = {
     email: "alex.morgan@example.com",
     phone: "+1 (555) 234-5678",
     location: "San Francisco, CA",
-    portfolio: "https://alexmorgan.dev",
+    website: "https://alexmorgan.dev",
     linkedin: "https://linkedin.com/in/alexmorgan",
   },
   summary:
@@ -105,19 +105,19 @@ export const PICKER_SAMPLE_RESUME: ResumeData = {
     {
       id: "proj_1",
       title: "RoleReady Resume Engine",
-      subtitle: "Full-Stack SaaS Platform",
       startDate: "2024",
       endDate: "2024",
-      description: "Real-time interactive resume builder with live AI bullet enhancer, 7 templates, and ATS parser optimization.",
+      description:
+        "Full-Stack SaaS Platform — Real-time interactive resume builder with live AI bullet enhancer, 7 templates, and ATS parser optimization.",
       technologies: ["Next.js", "TypeScript", "Drizzle ORM", "Neon Postgres"],
     },
     {
       id: "proj_2",
       title: "Distributed Microservices Gateway",
-      subtitle: "Open Source Tool",
       startDate: "2023",
       endDate: "2023",
-      description: "High-throughput API gateway supporting rate limiting, OAuth token validation, and gRPC routing.",
+      description:
+        "Open Source Tool — High-throughput API gateway supporting rate limiting, OAuth token validation, and gRPC routing.",
       technologies: ["Go", "gRPC", "Docker"],
     },
   ],
@@ -126,18 +126,18 @@ export const PICKER_SAMPLE_RESUME: ResumeData = {
       id: "cert_1",
       name: "AWS Certified Solutions Architect – Associate",
       issuer: "Amazon Web Services",
-      date: "2023",
+      issueDate: "2023",
     },
     {
       id: "cert_2",
       name: "Google Cloud Professional Cloud Architect",
       issuer: "Google Cloud",
-      date: "2022",
+      issueDate: "2022",
     },
   ],
   languages: [
-    { id: "lang_1", language: "English", proficiency: "Native / Fluent" },
-    { id: "lang_2", language: "Spanish", proficiency: "Professional Working" },
+    { id: "lang_1", language: "English", proficiency: "Native" },
+    { id: "lang_2", language: "Spanish", proficiency: "Proficient" },
   ],
   sectionOrder: [
     "personal_info",

@@ -84,24 +84,27 @@ function ClerkAuthNav({
   };
 
   return (
-    <div className={`flex items-center ${compact ? "gap-1.5" : "gap-2"}`}>
+    <div className={`flex items-center shrink-0 min-w-0 ${compact ? "gap-1" : "gap-1.5 sm:gap-2"}`}>
       <ThemeToggle />
       {!isLoaded ? (
-        <div className="h-8 w-36 rounded-md bg-muted animate-pulse" />
+        <div className="h-8 w-20 sm:w-36 rounded-md bg-muted animate-pulse" />
       ) : isSignedIn && user ? (
         <>
-          {showDashboardLink && !compact && (
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="text-xs hidden sm:inline-flex">
-                Dashboard
+          {showDashboardLink && (
+            <Link href="/dashboard" className="shrink-0">
+              <Button variant="ghost" size="sm" className="text-xs px-2 sm:px-3">
+                <span className="sm:hidden">App</span>
+                <span className="hidden sm:inline">Dashboard</span>
               </Button>
             </Link>
           )}
 
-          {/* Logged-in profile chip */}
-          <div
-            className={`flex items-center gap-2 rounded-full border bg-card/80 pl-1 pr-2.5 py-1 ${
-              compact ? "max-w-[160px] sm:max-w-[200px]" : "max-w-[220px]"
+          <Link
+            href="/dashboard"
+            className={`flex items-center gap-2 rounded-full border bg-card/80 pl-0.5 sm:pl-1 py-0.5 sm:py-1 min-w-0 hover:bg-muted/50 transition-colors ${
+              compact
+                ? "pr-1 sm:pr-2 max-w-[9rem] md:max-w-[11rem]"
+                : "pr-1.5 sm:pr-2.5 max-w-[2.25rem] sm:max-w-[10rem] md:max-w-[14rem]"
             }`}
             title={email || displayName}
           >
@@ -110,42 +113,49 @@ function ClerkAuthNav({
               <img
                 src={imageUrl}
                 alt=""
-                className="h-7 w-7 rounded-full object-cover border border-teal-700/20"
+                className="h-7 w-7 shrink-0 rounded-full object-cover border border-teal-700/20"
               />
             ) : (
-              <div className="h-7 w-7 rounded-full bg-teal-700 text-white text-[11px] font-bold flex items-center justify-center">
+              <div className="h-7 w-7 shrink-0 rounded-full bg-teal-700 text-white text-[11px] font-bold flex items-center justify-center">
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
-            <div className="min-w-0 leading-tight hidden xs:block sm:block">
+            <div className="min-w-0 leading-tight hidden sm:block">
               <p className="text-[11px] font-semibold text-foreground truncate">{displayName}</p>
               {email && (
-                <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">{email}</p>
+                <p className="text-[10px] text-muted-foreground truncate max-w-[7rem] md:max-w-[9rem] hidden md:block">
+                  {email}
+                </p>
               )}
             </div>
-          </div>
+          </Link>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleLogout}
-            className="text-xs gap-1.5 border-teal-800/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+            aria-label="Log out"
+            className="text-xs gap-1.5 px-2 sm:px-3 border-teal-800/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 shrink-0"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className={compact ? "hidden sm:inline" : ""}>Log out</span>
+            <span className="hidden md:inline">Log out</span>
           </Button>
         </>
       ) : (
         <>
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm" className="text-xs gap-1.5">
+          <Link href="/sign-in" className="shrink-0">
+            <Button variant="ghost" size="sm" className="text-xs gap-1.5 px-2 sm:px-3">
               <LogIn className="h-3.5 w-3.5" />
-              Sign In
+              <span className="hidden sm:inline">Sign In</span>
             </Button>
           </Link>
-          <Link href={primaryHref}>
-            <Button size="sm" className="text-xs bg-teal-700 hover:bg-teal-800 text-white shadow-sm">
-              {primaryLabel}
+          <Link href={primaryHref} className="shrink-0">
+            <Button
+              size="sm"
+              className="text-xs bg-teal-700 hover:bg-teal-800 text-white shadow-sm px-2.5 sm:px-3"
+            >
+              <span className="sm:hidden">Start</span>
+              <span className="hidden sm:inline">{primaryLabel}</span>
             </Button>
           </Link>
         </>

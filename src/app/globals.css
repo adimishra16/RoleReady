@@ -134,9 +134,11 @@
   }
 }
 
-/* A4 resume page preview scale */
+/* A4 resume page — fixed print size; never shrink with viewport */
 .a4-page {
   width: 210mm;
+  min-width: 210mm;
+  max-width: 210mm;
   min-height: 297mm;
   background: white;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);

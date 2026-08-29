@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useState } from "react";
+import React, { use, useState, useCallback } from "react";
 import { useResumeStore } from "@/lib/hooks/useResumeStore";
 import { ResumeData, CustomSectionEntry } from "@/lib/types/resume";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -177,6 +177,21 @@ export default function ResumeBuilderPage({
   } = useResumeStore(initialResume);
 
   const [isMobilePreviewOpen, setIsMobilePreviewOpen] = useState(false);
+  const [fitScale, setFitScale] = useState(0.85);
+
+  const handleFitScale = useCallback((next: number) => {
+    setFitScale(next);
+  }, []);
+
+  const handleToggleMobilePreview = useCallback(() => {
+    setIsMobilePreviewOpen((prev) => {
+      const opening = !prev;
+      if (opening) {
+        setZoomScale(fitScale);
+      }
+      return opening;
+    });
+  }, [fitScale, setZoomScale]);
 
   const handleAddMissingSkillFromJd = (newSkill: string) => {
     if (data.skills.length === 0) {
@@ -287,7 +302,7 @@ export default function ResumeBuilderPage({
         onUpdateThemeColor={updateThemeColor}
         onUpdateFontFamily={updateFontFamily}
         onAddMissingSkill={handleAddMissingSkillFromJd}
-        onToggleMobilePreview={() => setIsMobilePreviewOpen(!isMobilePreviewOpen)}
+        onToggleMobilePreview={handleToggleMobilePreview}
         isMobilePreviewOpen={isMobilePreviewOpen}
       />
 
@@ -327,18 +342,21 @@ export default function ResumeBuilderPage({
           </div>
         </div>
 
-        {/* Right Side: Live Resume Preview Pane */}
+        {/* Right Side: Live Resume Preview — always mounted so PDF export can clone A4 */}
         <div
-          className={`w-full lg:w-1/2 h-[calc(100vh-57px)] ${
-            isMobilePreviewOpen ? "block" : "hidden lg:block"
-          }`}
+          className={
+            isMobilePreviewOpen
+              ? "w-full lg:w-1/2 h-[calc(100vh-57px)] block"
+              : "hidden lg:block lg:w-1/2 h-[calc(100vh-57px)]"
+          }
         >
           <ResumePreviewPane
             data={data}
             scale={zoomScale}
-            onZoomIn={() => setZoomScale((prev) => Math.min(1.5, prev + 0.1))}
-            onZoomOut={() => setZoomScale((prev) => Math.max(0.4, prev - 0.1))}
-            onResetZoom={() => setZoomScale(0.85)}
+            onZoomIn={() => setZoomScale((prev) => Math.min(1.5, prev + 0.05))}
+            onZoomOut={() => setZoomScale((prev) => Math.max(0.32, prev - 0.05))}
+            onResetZoom={() => setZoomScale(fitScale)}
+            onFitScale={handleFitScale}
           />
         </div>
       </div>

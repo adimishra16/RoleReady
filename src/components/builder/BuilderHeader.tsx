@@ -13,8 +13,7 @@ import { TemplateGalleryModal, TEMPLATE_OPTIONS } from "@/components/templates/T
 import { AuthNavActions, ClerkSignedInGate } from "@/components/brand/AuthNavActions";
 import { requireSignedInForDownload } from "@/lib/actions/download.actions";
 import confetti from "canvas-confetti";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { exportResumeCanvasToPdf } from "@/lib/pdf/export-resume-pdf";
 import {
   ArrowLeft,
   Download,
@@ -123,39 +122,7 @@ export function BuilderHeader({
     setIsExportingPdf(true);
     setDownloadError(null);
     try {
-      const element = document.getElementById("resume-canvas");
-      if (!element) {
-        window.print();
-        return;
-      }
-
-      const originalTransform = element.style.transform;
-      element.style.transform = "scale(1)";
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowWidth: 1200,
-      });
-
-      element.style.transform = originalTransform;
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-
-      const filename = `${(data.title || "Resume").replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
-      pdf.save(filename);
+      await exportResumeCanvasToPdf(data.title || "Resume");
 
       try {
         confetti({
@@ -163,7 +130,9 @@ export function BuilderHeader({
           spread: 80,
           origin: { y: 0.6 },
         });
-      } catch {}
+      } catch {
+        /* ignore confetti failures */
+      }
     } catch (err) {
       console.error("Direct PDF Export failed, falling back to window.print():", err);
       window.print();

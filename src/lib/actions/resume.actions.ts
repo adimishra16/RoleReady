@@ -2,7 +2,7 @@
 
 import { db, isDbConfigured } from "@/db";
 import { resumes, resumeSections, sharedLinks } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { ResumeData, TemplateId } from "@/lib/types/resume";
 import { revalidatePath } from "next/cache";
 import { BRAND } from "@/lib/brand";
@@ -10,14 +10,73 @@ import { auth } from "@clerk/nextjs/server";
 
 const MAX_RESUMES = BRAND.maxResumesPerUser;
 
-export async function saveResumeAction(data: ResumeData): Promise<{ success: boolean; error?: string }> {
+async function requireSignedInUserId(): Promise<
+  { ok: true; userId: string } | { ok: false; error: string }
+> {
+  try {
+    const session = await auth();
+    if (session.userId) {
+      return { ok: true, userId: session.userId };
+    }
+  } catch {
+    // Clerk unavailable
+  }
+  return { ok: false, error: "Sign in required" };
+}
+
+async function assertResumeOwnership(
+  resumeId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!db) {
+    return { ok: false, error: "Database not configured" };
+  }
+
+  // Neon resumes.id is UUID — reject non-UUID ids early (demo/local ids)
+  const uuidRe =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRe.test(resumeId)) {
+    return { ok: false, error: "Resume not found" };
+  }
+
+  try {
+    const [row] = await db
+      .select({ id: resumes.id, userId: resumes.userId })
+      .from(resumes)
+      .where(eq(resumes.id, resumeId))
+      .limit(1);
+
+    if (!row) {
+      return { ok: false, error: "Resume not found" };
+    }
+    if (row.userId !== userId) {
+      return { ok: false, error: "Forbidden" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Resume not found" };
+  }
+}
+
+export async function saveResumeAction(
+  data: ResumeData
+): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isDbConfigured || !db) {
-      // In offline/demo mode, return success so client stores locally
+      // Offline/demo: localStorage only — no cloud mutation
       return { success: true };
     }
 
-    // 1. Update resume metadata
+    const authResult = await requireSignedInUserId();
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
+    }
+
+    const owned = await assertResumeOwnership(data.id, authResult.userId);
+    if (!owned.ok) {
+      return { success: false, error: owned.error };
+    }
+
     await db
       .update(resumes)
       .set({
@@ -27,9 +86,8 @@ export async function saveResumeAction(data: ResumeData): Promise<{ success: boo
         fontFamily: data.fontFamily,
         updatedAt: new Date(),
       })
-      .where(eq(resumes.id, data.id));
+      .where(and(eq(resumes.id, data.id), eq(resumes.userId, authResult.userId)));
 
-    // 2. Clear and re-insert sections or upsert
     await db.delete(resumeSections).where(eq(resumeSections.resumeId, data.id));
 
     const sectionsToInsert = [
@@ -93,25 +151,25 @@ export async function saveResumeAction(data: ResumeData): Promise<{ success: boo
     return { success: true };
   } catch (error: any) {
     console.error("Save Resume Action Error:", error);
-    return { success: false, error: error.message || "Failed to save resume" };
+    return { success: false, error: "Failed to save resume" };
   }
 }
 
 export async function createResumeAction(
-  userId: string,
+  _ignoredUserId: string,
   title: string = "Untitled Resume",
   templateId: TemplateId = "modern"
 ): Promise<{ success: boolean; resume?: ResumeData; error?: string }> {
   try {
-    let ownerId = userId;
-    try {
-      const session = await auth();
-      if (session.userId) ownerId = session.userId;
-    } catch {
-      // Clerk may be inactive in demo mode
-    }
+    const authResult = await requireSignedInUserId();
 
+    // Cloud DB: never trust client-supplied userId
     if (isDbConfigured && db) {
+      if (!authResult.ok) {
+        return { success: false, error: authResult.error };
+      }
+      const ownerId = authResult.userId;
+
       const [countRow] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(resumes)
@@ -174,12 +232,20 @@ export async function createResumeAction(
           projects: [],
           certifications: [],
           languages: [],
-          sectionOrder: ["personal_info", "summary", "work_experience", "skills", "education", "projects"],
+          sectionOrder: [
+            "personal_info",
+            "summary",
+            "work_experience",
+            "skills",
+            "education",
+            "projects",
+          ],
         },
       };
     }
 
-    // Offline / demo mode — client still enforces the 3-resume cap
+    // Offline / demo (no DB): local mock only, still prefer signed-in id
+    const ownerId = authResult.ok ? authResult.userId : "user_demo";
     const mockId = "res_" + Math.random().toString(36).substring(2, 9);
     const newResume: ResumeData = {
       id: mockId,
@@ -200,28 +266,59 @@ export async function createResumeAction(
       summary: "Passionate engineer dedicated to building clean, impactful web applications.",
       workExperience: [],
       education: [],
-      skills: [{ id: "cat_1", categoryName: "Core Technologies", skills: ["TypeScript", "React", "Next.js"] }],
+      skills: [
+        {
+          id: "cat_1",
+          categoryName: "Core Technologies",
+          skills: ["TypeScript", "React", "Next.js"],
+        },
+      ],
       projects: [],
       certifications: [],
       languages: [],
-      sectionOrder: ["personal_info", "summary", "work_experience", "skills", "education", "projects"],
+      sectionOrder: [
+        "personal_info",
+        "summary",
+        "work_experience",
+        "skills",
+        "education",
+        "projects",
+      ],
     };
     return { success: true, resume: newResume };
   } catch (error: any) {
     console.error("Create Resume Error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to create resume" };
   }
 }
 
-export async function deleteResumeAction(resumeId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteResumeAction(
+  resumeId: string
+): Promise<{ success: boolean; error?: string }> {
   try {
-    if (isDbConfigured && db) {
-      await db.delete(resumes).where(eq(resumes.id, resumeId));
-      revalidatePath("/dashboard");
+    if (!isDbConfigured || !db) {
+      return { success: true };
     }
+
+    const authResult = await requireSignedInUserId();
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
+    }
+
+    const owned = await assertResumeOwnership(resumeId, authResult.userId);
+    if (!owned.ok) {
+      return { success: false, error: owned.error };
+    }
+
+    await db
+      .delete(resumes)
+      .where(and(eq(resumes.id, resumeId), eq(resumes.userId, authResult.userId)));
+
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    console.error("Delete Resume Error:", error);
+    return { success: false, error: "Failed to delete resume" };
   }
 }
 
@@ -230,26 +327,47 @@ export async function createShareableSlugAction(
   customSlug?: string
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
   try {
+    if (!isDbConfigured || !db) {
+      const slug = `cv-${Math.random().toString(36).substring(2, 8)}`;
+      return { success: true, slug };
+    }
+
+    const authResult = await requireSignedInUserId();
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
+    }
+
+    const owned = await assertResumeOwnership(resumeId, authResult.userId);
+    if (!owned.ok) {
+      return { success: false, error: owned.error };
+    }
+
     const slug = (customSlug || `cv-${Math.random().toString(36).substring(2, 8)}`)
       .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-");
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80);
 
-    if (isDbConfigured && db) {
-      await db
-        .insert(sharedLinks)
-        .values({
-          resumeId,
-          slug,
-          isPublic: true,
-        })
-        .onConflictDoUpdate({
-          target: sharedLinks.resumeId,
-          set: { slug, isPublic: true },
-        });
+    if (!slug) {
+      return { success: false, error: "Invalid slug" };
     }
+
+    await db
+      .insert(sharedLinks)
+      .values({
+        resumeId,
+        slug,
+        isPublic: true,
+      })
+      .onConflictDoUpdate({
+        target: sharedLinks.resumeId,
+        set: { slug, isPublic: true },
+      });
 
     return { success: true, slug };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    console.error("Share slug error:", error);
+    return { success: false, error: "Failed to create share link" };
   }
 }

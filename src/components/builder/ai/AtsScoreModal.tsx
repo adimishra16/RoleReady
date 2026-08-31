@@ -91,7 +91,7 @@ export function AtsScoreModal({ isOpen, onClose, data }: Props) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} className="max-w-lg max-h-[85vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose} className="max-w-lg">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Gauge className="h-5 w-5 text-teal-700" />

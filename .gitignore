@@ -84,3 +84,5 @@ test-results/
 # Misc local scratch
 tmp/
 temp/
+.vercel
+.env*

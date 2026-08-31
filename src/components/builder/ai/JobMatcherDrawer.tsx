@@ -65,7 +65,7 @@ export function JobMatcherDrawer({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose} className="max-w-2xl">
       <DialogHeader>
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">

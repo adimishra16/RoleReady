@@ -372,16 +372,22 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Template picker modal */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen} className="max-w-4xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Create New Resume</DialogTitle>
-          <DialogDescription>
-            Enter a title and choose your starting visual document design.
-          </DialogDescription>
-        </DialogHeader>
+      {/* Template picker modal — footer pinned; only templates scroll */}
+      <Dialog
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        className="max-w-4xl max-h-[min(92dvh,calc(100vh-1.5rem))] flex flex-col overflow-hidden p-0"
+      >
+        <div className="shrink-0 px-6 pt-6 pr-12">
+          <DialogHeader className="mb-0">
+            <DialogTitle className="text-xl">Create New Resume</DialogTitle>
+            <DialogDescription>
+              Enter a title and choose your starting visual document design.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-5 my-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-5">
           <div>
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
               Resume Title / Target Application
@@ -400,16 +406,15 @@ export default function DashboardPage() {
               CHOOSE STARTING TEMPLATE DESIGN:
             </label>
 
-            {/* Template card grid */}
             <VisualTemplateCardPicker
               selectedTemplate={selectedTemplate}
               onSelectTemplate={(templateId) => setSelectedTemplate(templateId)}
-              className="max-h-[380px] overflow-y-auto pr-1"
+              className="pr-1"
             />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 mt-0 border-t bg-card px-6 py-4 sm:space-x-2">
           <Button variant="outline" size="sm" onClick={() => setIsCreateModalOpen(false)}>
             Cancel
           </Button>

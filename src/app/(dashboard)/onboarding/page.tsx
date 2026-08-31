@@ -13,6 +13,8 @@ import { TemplateId } from "@/lib/types/resume";
 import { VisualTemplateCardPicker } from "@/components/templates/VisualTemplateCardPicker";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { AuthNavActions, isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { IndustrySelect } from "@/components/profile/IndustrySelect";
+import { industryValueForSave } from "@/lib/profile/industries";
 import { TEMPLATE_OPTIONS } from "@/components/templates/TemplateGalleryModal";
 import { Sparkles, ArrowRight, ArrowLeft, Check, LayoutTemplate, ShieldCheck } from "lucide-react";
 
@@ -59,6 +61,7 @@ function OnboardingPageInner({
   const [name, setName] = useState(clerkName || "");
   const [jobTitle, setJobTitle] = useState("");
   const [industry, setIndustry] = useState("Tech & Software");
+  const [customIndustry, setCustomIndustry] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("modern");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,7 +82,7 @@ function OnboardingPageInner({
         email: ownerEmail,
         name: name || clerkName || "User",
         targetJobTitle: jobTitle || "Software Engineer",
-        industry: industry || "Tech & Software",
+        industry: industryValueForSave(industry, customIndustry) || "Tech & Software",
       });
 
       const res = await createResumeAction(
@@ -188,6 +191,12 @@ function OnboardingPageInner({
                   className="font-medium"
                 />
               </div>
+              <IndustrySelect
+                industry={industry}
+                customIndustry={customIndustry}
+                onIndustryChange={setIndustry}
+                onCustomIndustryChange={setCustomIndustry}
+              />
             </div>
 
             <Button
@@ -242,6 +251,12 @@ function OnboardingPageInner({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Target Role:</span>
                 <span className="font-extrabold text-foreground">{jobTitle}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground shrink-0">Industry:</span>
+                <span className="font-extrabold text-foreground text-right">
+                  {industryValueForSave(industry, customIndustry)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Selected Layout:</span>

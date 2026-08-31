@@ -7,30 +7,17 @@ import { AuthNavActions, isClerkConfigured } from "@/components/brand/AuthNavAct
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { IndustrySelect } from "@/components/profile/IndustrySelect";
 import {
   getMyProfileAction,
   updateMyProfileAction,
   type UserProfile,
 } from "@/lib/actions/user.actions";
 import {
-  ArrowLeft,
-  Check,
-  Loader2,
-  UserRound,
-} from "lucide-react";
-
-const INDUSTRY_OPTIONS = [
-  "Tech & Software",
-  "Finance & Fintech",
-  "Healthcare",
-  "Education",
-  "Marketing & Media",
-  "Consulting",
-  "Retail & E‑commerce",
-  "Manufacturing",
-  "Government & Public Sector",
-  "Other",
-] as const;
+  industryValueForSave,
+  resolveIndustrySelection,
+} from "@/lib/profile/industries";
+import { ArrowLeft, Check, Loader2, UserRound } from "lucide-react";
 
 export default function ProfilePage() {
   const [pending, startTransition] = useTransition();
@@ -49,16 +36,9 @@ export default function ProfilePage() {
     setEmail(profile.email);
     setName(profile.name);
     setTargetJobTitle(profile.targetJobTitle);
-    const known = INDUSTRY_OPTIONS.includes(
-      profile.industry as (typeof INDUSTRY_OPTIONS)[number]
-    );
-    if (profile.industry && !known) {
-      setIndustry("Other");
-      setCustomIndustry(profile.industry);
-    } else {
-      setIndustry(profile.industry || "Tech & Software");
-      setCustomIndustry("");
-    }
+    const resolved = resolveIndustrySelection(profile.industry);
+    setIndustry(resolved.industry);
+    setCustomIndustry(resolved.customIndustry);
   };
 
   const load = useCallback(async () => {
@@ -93,8 +73,7 @@ export default function ProfilePage() {
   const handleSave = () => {
     setSaved(false);
     setError(null);
-    const industryValue =
-      industry === "Other" ? customIndustry.trim() || "Other" : industry;
+    const industryValue = industryValueForSave(industry, customIndustry);
 
     startTransition(async () => {
       const res = await updateMyProfileAction({
@@ -214,31 +193,12 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-              Industry
-            </label>
-            <select
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {INDUSTRY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            {industry === "Other" && (
-              <Input
-                className="mt-2"
-                value={customIndustry}
-                onChange={(e) => setCustomIndustry(e.target.value)}
-                placeholder="Describe your industry"
-                maxLength={255}
-              />
-            )}
-          </div>
+          <IndustrySelect
+            industry={industry}
+            customIndustry={customIndustry}
+            onIndustryChange={setIndustry}
+            onCustomIndustryChange={setCustomIndustry}
+          />
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
             <Button

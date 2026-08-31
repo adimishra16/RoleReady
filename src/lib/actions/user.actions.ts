@@ -13,7 +13,40 @@ export type SyncUserResult = {
 };
 
 /**
+ * Resolve email conflict so Clerk user id can always be inserted/upserted.
+ * Demo rows are deleted; other orphans get an archived email to free the unique constraint.
+ */
+async function freeEmailForClerkUser(clerkUserId: string, email: string) {
+  if (!db) return;
+
+  const existingByEmail = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (existingByEmail.length === 0 || existingByEmail[0].id === clerkUserId) {
+    return;
+  }
+
+  const orphanId = existingByEmail[0].id;
+  if (orphanId.startsWith("user_demo") || orphanId === "demo") {
+    await db.delete(users).where(eq(users.id, orphanId));
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({
+      email: `archived+${orphanId.slice(0, 12)}-${Date.now()}@roleready.local`,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, orphanId));
+}
+
+/**
  * Upsert the signed-in Clerk user into Neon `users`.
+ * Always pushes on login — insert or update, no skip paths when DB + session exist.
  * Requires Clerk middleware so the session cookie is visible to auth().
  */
 export async function syncClerkUserAction(): Promise<SyncUserResult> {
@@ -37,16 +70,14 @@ export async function syncClerkUserAction(): Promise<SyncUserResult> {
 
     const email =
       clerkUser.primaryEmailAddress?.emailAddress ||
-      clerkUser.emailAddresses?.[0]?.emailAddress;
-
-    if (!email) {
-      return { success: false, error: "Clerk user has no email address" };
-    }
+      clerkUser.emailAddresses?.[0]?.emailAddress ||
+      // Last resort: never block login sync — placeholder still lands the Clerk id in Neon
+      `${session.userId}@users.clerk.roleready.local`;
 
     const name =
       [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
       clerkUser.username ||
-      email.split("@")[0] ||
+      (email.includes("@") ? email.split("@")[0] : null) ||
       "User";
 
     const existingById = await db
@@ -55,52 +86,66 @@ export async function syncClerkUserAction(): Promise<SyncUserResult> {
       .where(eq(users.id, session.userId))
       .limit(1);
 
-    if (existingById.length > 0) {
-      await db
-        .update(users)
-        .set({
+    const alreadyExists = existingById.length > 0;
+
+    await freeEmailForClerkUser(session.userId, email);
+
+    await db
+      .insert(users)
+      .values({
+        id: session.userId,
+        email,
+        name,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
           email,
           name,
           updatedAt: new Date(),
-        })
-        .where(eq(users.id, session.userId));
-      return { success: true, userId: session.userId, created: false };
-    }
+        },
+      });
 
-    // Email may already exist under a different id (old demo row) — reclaim or insert
-    const existingByEmail = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (existingByEmail.length > 0 && existingByEmail[0].id !== session.userId) {
-      // Prefer Clerk id: delete orphan row only if it looks like a demo placeholder
-      const orphanId = existingByEmail[0].id;
-      if (orphanId.startsWith("user_demo") || orphanId === "demo") {
-        await db.delete(users).where(eq(users.id, orphanId));
-      } else {
-        // Keep data: update email on orphan to free unique constraint, then insert
-        await db
-          .update(users)
-          .set({
-            email: `archived+${orphanId.slice(0, 8)}@roleready.local`,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, orphanId));
-      }
-    }
-
-    await db.insert(users).values({
-      id: session.userId,
-      email,
-      name,
-    });
-
-    return { success: true, userId: session.userId, created: true };
+    return {
+      success: true,
+      userId: session.userId,
+      created: !alreadyExists,
+    };
   } catch (error: any) {
     console.error("syncClerkUserAction error:", error);
-    return { success: false, error: error.message || "Failed to sync user" };
+    // One more attempt after freeing email (race / unique violation)
+    try {
+      if (!isDbConfigured || !db) throw error;
+      const session = await auth();
+      const clerkUser = session.userId ? await currentUser() : null;
+      if (!session.userId || !clerkUser) throw error;
+
+      const email =
+        clerkUser.primaryEmailAddress?.emailAddress ||
+        clerkUser.emailAddresses?.[0]?.emailAddress ||
+        `${session.userId}@users.clerk.roleready.local`;
+      const name =
+        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+        clerkUser.username ||
+        "User";
+
+      await freeEmailForClerkUser(session.userId, email);
+      await db
+        .insert(users)
+        .values({ id: session.userId, email, name })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: { email, name, updatedAt: new Date() },
+        });
+
+      return { success: true, userId: session.userId, created: false };
+    } catch (retryError: any) {
+      console.error("syncClerkUserAction retry failed:", retryError);
+      return {
+        success: false,
+        error: retryError?.message || error?.message || "Failed to sync user",
+      };
+    }
   }
 }
 

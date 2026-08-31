@@ -3,17 +3,19 @@ import { syncClerkUserAction } from "@/lib/actions/user.actions";
 
 export const runtime = "nodejs";
 
-/** Explicit sync endpoint — called after Clerk sign-in. */
+function statusFor(result: { success: boolean; error?: string }) {
+  if (result.success) return 200;
+  if (result.error?.toLowerCase().includes("not signed in")) return 401;
+  return 500;
+}
+
+/** Explicit sync endpoint — called on every Clerk sign-in / session restore. */
 export async function POST() {
   const result = await syncClerkUserAction();
-  return NextResponse.json(result, {
-    status: result.success ? 200 : result.error === "Not signed in" ? 401 : 500,
-  });
+  return NextResponse.json(result, { status: statusFor(result) });
 }
 
 export async function GET() {
   const result = await syncClerkUserAction();
-  return NextResponse.json(result, {
-    status: result.success ? 200 : result.error === "Not signed in" ? 401 : 500,
-  });
+  return NextResponse.json(result, { status: statusFor(result) });
 }

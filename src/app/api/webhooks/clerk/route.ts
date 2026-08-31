@@ -66,18 +66,20 @@ export async function POST(req: Request) {
       const fullName =
         [first_name, last_name].filter(Boolean).join(" ") || username || "User";
 
-      if (id && primaryEmail) {
+      if (id) {
+        // Always push — never drop webhook users for missing email
+        const email = primaryEmail || `${id}@users.clerk.roleready.local`;
         await db
           .insert(users)
           .values({
             id,
-            email: primaryEmail,
+            email,
             name: fullName,
           })
           .onConflictDoUpdate({
             target: users.id,
             set: {
-              email: primaryEmail,
+              email,
               name: fullName,
               updatedAt: new Date(),
             },

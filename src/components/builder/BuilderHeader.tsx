@@ -9,6 +9,7 @@ import { ResumeData, TemplateId } from "@/lib/types/resume";
 import { createShareableSlugAction } from "@/lib/actions/resume.actions";
 import { JobMatcherDrawer } from "./ai/JobMatcherDrawer";
 import { CoverLetterModal } from "./ai/CoverLetterModal";
+import { AtsScoreModal } from "./ai/AtsScoreModal";
 import { TemplateGalleryModal, TEMPLATE_OPTIONS } from "@/components/templates/TemplateGalleryModal";
 import { AuthNavActions, ClerkSignedInGate } from "@/components/brand/AuthNavActions";
 import { requireSignedInForDownload } from "@/lib/actions/download.actions";
@@ -28,6 +29,7 @@ import {
   AlertCircle,
   Eye,
   Lock,
+  Gauge,
 } from "lucide-react";
 
 interface Props {
@@ -76,6 +78,7 @@ export function BuilderHeader({
   const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
   const [isJobMatcherOpen, setIsJobMatcherOpen] = useState(false);
   const [isCoverLetterOpen, setIsCoverLetterOpen] = useState(false);
+  const [isAtsScoreOpen, setIsAtsScoreOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareSlug, setShareSlug] = useState("");
   const [isSharing, setIsSharing] = useState(false);
@@ -273,6 +276,16 @@ export function BuilderHeader({
         <Button
           variant="outline"
           size="sm"
+          onClick={() => setIsAtsScoreOpen(true)}
+          className="gap-1.5 text-xs text-teal-800 dark:text-teal-300 border-teal-600/30 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+        >
+          <Gauge className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">ATS Score</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setIsJobMatcherOpen(true)}
           className="hidden sm:inline-flex gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
         >
@@ -355,6 +368,12 @@ export function BuilderHeader({
         onClose={() => setIsJobMatcherOpen(false)}
         resumeData={data}
         onAddMissingSkill={onAddMissingSkill}
+      />
+
+      <AtsScoreModal
+        isOpen={isAtsScoreOpen}
+        onClose={() => setIsAtsScoreOpen(false)}
+        data={data}
       />
 
       {/* AI Cover Letter Modal */}

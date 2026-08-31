@@ -95,6 +95,29 @@ function OnboardingPageInner({
       }
 
       const newId = res.resume?.id || "demo-resume-1";
+      if (typeof window !== "undefined" && res.resume) {
+        try {
+          localStorage.setItem(
+            "cv_builder_resume_" + newId,
+            JSON.stringify(res.resume)
+          );
+          const listKey = "cv_builder_user_resumes";
+          const existing = JSON.parse(localStorage.getItem(listKey) || "[]");
+          const entry = {
+            id: newId,
+            title: res.resume.title,
+            templateId: res.resume.templateId,
+            themeColor: res.resume.themeColor,
+            updatedAt: "Just now",
+            jobTitle: jobTitle || "—",
+          };
+          const next = [
+            entry,
+            ...existing.filter((r: { id: string }) => r.id !== newId && r.id !== "resume-frontend-lead"),
+          ].slice(0, 3);
+          localStorage.setItem(listKey, JSON.stringify(next));
+        } catch {}
+      }
       router.push(`/builder/${newId}`);
     } finally {
       setIsSubmitting(false);

@@ -14,9 +14,14 @@ export const users = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(), // Clerk User ID
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
+  /**
+   * 'user' | 'admin' — NEVER accept from client.
+   * Promote only in Neon: UPDATE users SET role = 'admin' WHERE email = '...';
+   */
+  role: varchar("role", { length: 20 }).notNull().default("user"),
   targetJobTitle: varchar("target_job_title", { length: 255 }),
   industry: varchar("industry", { length: 255 }),
-  /** Toggle in Neon SQL: UPDATE users SET ai_enabled = true WHERE email = '...'; */
+  /** Toggle via admin dashboard or Neon SQL */
   aiEnabled: boolean("ai_enabled").notNull().default(false),
   /** Max AI bullet rewrites allowed for this user */
   aiRewriteLimit: integer("ai_rewrite_limit").notNull().default(15),
@@ -25,8 +30,28 @@ export const users = pgTable("users", {
   /** Shared pool for summary / cover letter / job match */
   aiOtherLimit: integer("ai_other_limit").notNull().default(10),
   aiOtherUsed: integer("ai_other_used").notNull().default(0),
+  /** free | starter | pro */
+  plan: varchar("plan", { length: 20 }).notNull().default("free"),
+  /** none | active | past_due | cancelled | created */
+  subscriptionStatus: varchar("subscription_status", { length: 30 })
+    .notNull()
+    .default("none"),
+  razorpayCustomerId: varchar("razorpay_customer_id", { length: 100 }),
+  razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 100 }),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const billingEvents = pgTable("billing_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, {
+    onDelete: "set null",
+  }),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  razorpayEventId: varchar("razorpay_event_id", { length: 120 }),
+  payload: jsonb("payload").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 /** Global toggles editable in Neon (e.g. ai_globally_enabled = false) */

@@ -1,4 +1,4 @@
-export type AiFeature = "rewrite" | "summary" | "cover_letter" | "job_match";
+export type AiFeature = "rewrite" | "summary" | "cover_letter" | "job_match" | "ats_score";
 
 export type AiAccessStatus = {
   enabled: boolean;

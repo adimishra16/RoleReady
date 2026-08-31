@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { SummaryGeneratorModal } from "@/components/builder/ai/SummaryGeneratorModal";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
 import { ResumeData } from "@/lib/types/resume";
 
 interface Props {
@@ -14,26 +16,34 @@ interface Props {
 }
 
 export function SummarySection({ summary, onChange, resumeData }: Props) {
-  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  const [isRewriteOpen, setIsRewriteOpen] = useState(false);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h3 className="text-base font-bold text-foreground">Professional Summary</h3>
           <p className="text-xs text-muted-foreground">
             A concise 2-4 sentence hook summarizing your value proposition, experience, and key skills.
           </p>
         </div>
-        <Button
-          onClick={() => setIsAiOpen(true)}
-          variant="gradient"
-          size="sm"
-          className="gap-1.5 text-xs"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          Generate with AI
-        </Button>
+        <div className="flex items-center gap-2">
+          <AiRewriteButton
+            disabled={!summary.trim()}
+            label="Rewrite with AI"
+            onClick={() => setIsRewriteOpen(true)}
+          />
+          <Button
+            onClick={() => setIsGenerateOpen(true)}
+            variant="gradient"
+            size="sm"
+            className="gap-1.5 text-xs"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate with AI
+          </Button>
+        </div>
       </div>
 
       <div>
@@ -51,10 +61,19 @@ export function SummarySection({ summary, onChange, resumeData }: Props) {
       </div>
 
       <SummaryGeneratorModal
-        isOpen={isAiOpen}
-        onClose={() => setIsAiOpen(false)}
+        isOpen={isGenerateOpen}
+        onClose={() => setIsGenerateOpen(false)}
         resumeData={resumeData}
         onApply={(generated) => onChange(generated)}
+      />
+
+      <SectionRewriteModal
+        isOpen={isRewriteOpen}
+        onClose={() => setIsRewriteOpen(false)}
+        initialText={summary}
+        sectionType="summary"
+        meta={resumeData.personalInfo?.jobTitle || undefined}
+        onApply={onChange}
       />
     </div>
   );

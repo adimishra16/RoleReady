@@ -174,3 +174,105 @@ export async function saveUserOnboardingAction({
     return { success: false, error: error.message };
   }
 }
+
+export type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  targetJobTitle: string;
+  industry: string;
+};
+
+/** Load signed-in user's basic profile (no role / AI fields). */
+export async function getMyProfileAction(): Promise<{
+  success: boolean;
+  profile?: UserProfile;
+  error?: string;
+}> {
+  try {
+    if (!isDbConfigured || !db) {
+      return { success: false, error: "Database not configured" };
+    }
+
+    const session = await auth();
+    if (!session.userId) {
+      return { success: false, error: "Sign in required" };
+    }
+
+    await syncClerkUserAction();
+
+    const [row] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        targetJobTitle: users.targetJobTitle,
+        industry: users.industry,
+      })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    if (!row) {
+      return { success: false, error: "Profile not found" };
+    }
+
+    return {
+      success: true,
+      profile: {
+        id: row.id,
+        email: row.email,
+        name: row.name || "",
+        targetJobTitle: row.targetJobTitle || "",
+        industry: row.industry || "",
+      },
+    };
+  } catch (error: any) {
+    console.error("getMyProfileAction error:", error);
+    return { success: false, error: error.message || "Failed to load profile" };
+  }
+}
+
+/**
+ * Update basic profile only: name, target job title, industry.
+ * Does not accept or change role, AI flags, or limits.
+ */
+export async function updateMyProfileAction(input: {
+  name: string;
+  targetJobTitle: string;
+  industry: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isDbConfigured || !db) {
+      return { success: false, error: "Database not configured" };
+    }
+
+    const session = await auth();
+    if (!session.userId) {
+      return { success: false, error: "Sign in required" };
+    }
+
+    const name = String(input.name || "").trim().slice(0, 255);
+    const targetJobTitle = String(input.targetJobTitle || "").trim().slice(0, 255);
+    const industry = String(input.industry || "").trim().slice(0, 255);
+
+    if (!name) {
+      return { success: false, error: "Name is required" };
+    }
+
+    await db
+      .update(users)
+      .set({
+        name,
+        targetJobTitle: targetJobTitle || null,
+        industry: industry || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, session.userId));
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("updateMyProfileAction error:", error);
+    return { success: false, error: error.message || "Failed to save profile" };
+  }
+}

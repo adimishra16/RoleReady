@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { generateId } from "@/lib/utils";
 import { Plus, Trash2, Edit2, Check, Layers } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   section: CustomSectionEntry;
@@ -23,6 +25,11 @@ export function CustomSectionEditor({
 }: Props) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(section.sectionTitle);
+  const [rewrite, setRewrite] = useState<{
+    itemId: string;
+    text: string;
+    meta?: string;
+  } | null>(null);
 
   const handleTitleSave = () => {
     setIsEditingTitle(false);
@@ -143,17 +150,45 @@ export function CustomSectionEditor({
                 />
               </div>
 
-              <Textarea
-                rows={2}
-                value={item.description || ""}
-                onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
-                placeholder="Description / Key details..."
-                className="text-xs"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Description
+                  </span>
+                  <AiRewriteButton
+                    disabled={!item.description?.trim()}
+                    onClick={() =>
+                      setRewrite({
+                        itemId: item.id,
+                        text: item.description || "",
+                        meta: item.title || section.sectionTitle,
+                      })
+                    }
+                  />
+                </div>
+                <Textarea
+                  rows={2}
+                  value={item.description || ""}
+                  onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
+                  placeholder="Description / Key details..."
+                  className="text-xs"
+                />
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="custom"
+        meta={rewrite?.meta}
+        onApply={(t) => {
+          if (rewrite) handleUpdateItem(rewrite.itemId, { description: t });
+        }}
+      />
     </div>
   );
 }

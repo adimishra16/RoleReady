@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { generateId } from "@/lib/utils";
 import { Sparkles, Plus, Trash2, X, PlusCircle } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   categories: SkillCategory[];
@@ -14,13 +16,32 @@ interface Props {
 }
 
 const COMMON_SUGGESTIONS = [
-  "TypeScript", "React", "Next.js", "Node.js", "Python", "PostgreSQL",
-  "Tailwind CSS", "Docker", "AWS", "GraphQL", "Git", "REST APIs",
-  "System Design", "Microservices", "CI/CD", "Redis", "Vercel AI SDK"
+  "TypeScript",
+  "React",
+  "Next.js",
+  "Node.js",
+  "Python",
+  "PostgreSQL",
+  "Tailwind CSS",
+  "Docker",
+  "AWS",
+  "GraphQL",
+  "Git",
+  "REST APIs",
+  "System Design",
+  "Microservices",
+  "CI/CD",
+  "Redis",
+  "Vercel AI SDK",
 ];
 
 export function SkillsSection({ categories, onChange }: Props) {
   const [newSkillInputs, setNewSkillInputs] = useState<{ [catId: string]: string }>({});
+  const [rewrite, setRewrite] = useState<{
+    catId: string;
+    text: string;
+    meta?: string;
+  } | null>(null);
 
   const handleAddCategory = () => {
     const newCat: SkillCategory = {
@@ -36,9 +57,7 @@ export function SkillsSection({ categories, onChange }: Props) {
   };
 
   const handleUpdateCategoryName = (catId: string, name: string) => {
-    onChange(
-      categories.map((c) => (c.id === catId ? { ...c, categoryName: name } : c))
-    );
+    onChange(categories.map((c) => (c.id === catId ? { ...c, categoryName: name } : c)));
   };
 
   const handleAddSkill = (catId: string, skill: string) => {
@@ -60,9 +79,7 @@ export function SkillsSection({ categories, onChange }: Props) {
   const handleRemoveSkill = (catId: string, skillToRemove: string) => {
     onChange(
       categories.map((c) =>
-        c.id === catId
-          ? { ...c, skills: c.skills.filter((s) => s !== skillToRemove) }
-          : c
+        c.id === catId ? { ...c, skills: c.skills.filter((s) => s !== skillToRemove) } : c
       )
     );
   };
@@ -77,8 +94,16 @@ export function SkillsSection({ categories, onChange }: Props) {
       onChange([newCat]);
       return;
     }
-    // Add to first category
     handleAddSkill(categories[0].id, skill);
+  };
+
+  const applySkillRewrite = (catId: string, rewritten: string) => {
+    const skills = rewritten
+      .split(/[,;\n]/)
+      .map((s) => s.replace(/^[-•*\d.)\s]+/, "").trim())
+      .filter(Boolean);
+    if (skills.length === 0) return;
+    onChange(categories.map((c) => (c.id === catId ? { ...c, skills } : c)));
   };
 
   return (
@@ -95,10 +120,9 @@ export function SkillsSection({ categories, onChange }: Props) {
         </Button>
       </div>
 
-      {/* Quick suggestions */}
       <div className="p-3 bg-muted/30 rounded-xl border border-border/60">
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-          <Sparkles className="h-3 w-3 text-purple-500" /> Popular Quick Add
+          <Sparkles className="h-3 w-3 text-teal-600" /> Popular Quick Add
         </p>
         <div className="flex flex-wrap gap-1.5">
           {COMMON_SUGGESTIONS.map((s) => (
@@ -133,20 +157,34 @@ export function SkillsSection({ categories, onChange }: Props) {
                   placeholder="Category Name (e.g., Languages, Frameworks, Cloud)"
                   className="font-semibold text-sm h-8"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => handleRemoveCategory(cat.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <AiRewriteButton
+                    disabled={cat.skills.length === 0}
+                    label="Rewrite skills"
+                    onClick={() =>
+                      setRewrite({
+                        catId: cat.id,
+                        text: cat.skills.join(", "),
+                        meta: cat.categoryName,
+                      })
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleRemoveCategory(cat.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
 
-              {/* Skills Tags List */}
               <div className="flex flex-wrap gap-1.5 min-h-[32px] p-1 bg-muted/20 rounded-lg">
                 {cat.skills.length === 0 ? (
-                  <span className="text-xs text-muted-foreground p-1">No skills added to this group yet.</span>
+                  <span className="text-xs text-muted-foreground p-1">
+                    No skills added to this group yet.
+                  </span>
                 ) : (
                   cat.skills.map((skill) => (
                     <Badge
@@ -167,7 +205,6 @@ export function SkillsSection({ categories, onChange }: Props) {
                 )}
               </div>
 
-              {/* Add Skill Input */}
               <div className="flex items-center gap-2">
                 <Input
                   placeholder="Type a skill (e.g., Next.js) and press Enter..."
@@ -196,6 +233,18 @@ export function SkillsSection({ categories, onChange }: Props) {
           ))}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="skills"
+        meta={rewrite?.meta}
+        title="Skills list"
+        onApply={(t) => {
+          if (rewrite) applySkillRewrite(rewrite.catId, t);
+        }}
+      />
     </div>
   );
 }

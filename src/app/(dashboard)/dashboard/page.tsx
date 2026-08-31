@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ResumeData, TemplateId } from "@/lib/types/resume";
+import { TemplateId } from "@/lib/types/resume";
 import { createResumeAction } from "@/lib/actions/resume.actions";
 import { VisualTemplateCardPicker } from "@/components/templates/VisualTemplateCardPicker";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -36,20 +36,10 @@ interface ResumeListItem {
 
 const MAX_RESUMES = BRAND.maxResumesPerUser;
 
-const DEFAULT_RESUMES: ResumeListItem[] = [
-  {
-    id: "resume-frontend-lead",
-    title: "Senior Full Stack Engineer (AI Focus)",
-    templateId: "modern",
-    themeColor: "#0d9488",
-    updatedAt: "Just now",
-    jobTitle: "Senior Full Stack Engineer",
-  },
-];
-
 export default function DashboardPage() {
   const router = useRouter();
-  const [resumes, setResumes] = useState<ResumeListItem[]>(DEFAULT_RESUMES);
+  const [resumes, setResumes] = useState<ResumeListItem[]>([]);
+  const [listHydrated, setListHydrated] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -60,15 +50,24 @@ export default function DashboardPage() {
   const atResumeLimit = resumes.length >= MAX_RESUMES;
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("cv_builder_user_resumes");
-        if (stored) {
-          const parsed = JSON.parse(stored) as ResumeListItem[];
-          setResumes(parsed.slice(0, MAX_RESUMES));
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("cv_builder_user_resumes");
+      if (stored) {
+        const parsed = JSON.parse(stored) as ResumeListItem[];
+        // Drop legacy seeded demo if it was never edited as a real user resume
+        const cleaned = parsed.filter((r) => r.id !== "resume-frontend-lead");
+        setResumes(cleaned.slice(0, MAX_RESUMES));
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem("cv_builder_user_resumes", JSON.stringify(cleaned));
         }
-      } catch {}
+      } else {
+        setResumes([]);
+      }
+    } catch {
+      setResumes([]);
     }
+    setListHydrated(true);
   }, []);
 
   const saveResumesList = (items: ResumeListItem[]) => {
@@ -87,6 +86,8 @@ export default function DashboardPage() {
       return;
     }
     setCreateError(null);
+    setNewTitle("");
+    setSelectedTemplate("modern");
     setIsCreateModalOpen(true);
   };
 
@@ -108,14 +109,24 @@ export default function DashboardPage() {
       }
 
       const newId = res.resume?.id || "res_" + Date.now();
+      const blank = res.resume;
+
+      if (typeof window !== "undefined" && blank) {
+        try {
+          localStorage.setItem(
+            "cv_builder_resume_" + newId,
+            JSON.stringify(blank)
+          );
+        } catch {}
+      }
 
       const newItem: ResumeListItem = {
         id: newId,
         title: newTitle.trim(),
         templateId: selectedTemplate,
-        themeColor: "#0d9488",
+        themeColor: blank?.themeColor || "#0d9488",
         updatedAt: "Just now",
-        jobTitle: "Software Engineer",
+        jobTitle: blank?.personalInfo?.jobTitle || "—",
       };
 
       const updatedList = [newItem, ...resumes].slice(0, MAX_RESUMES);
@@ -193,11 +204,28 @@ export default function DashboardPage() {
               Your Resume Hub
             </h1>
             <p className="text-sm text-muted-foreground max-w-xl">
-              Create up to {MAX_RESUMES} role-ready resumes. Sign in to download PDFs.
+              Start from a template and build your own resume — up to {MAX_RESUMES} per account.
+              Sign in to download PDFs.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3">
+            <Link href="/profile">
+              <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px] hover:border-teal-600/40 transition-colors cursor-pointer">
+                <span className="text-sm font-black text-teal-800 dark:text-teal-300">Profile</span>
+                <p className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">
+                  Edit details
+                </p>
+              </div>
+            </Link>
+            <Link href="/pricing">
+              <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px] hover:border-teal-600/40 transition-colors cursor-pointer">
+                <span className="text-sm font-black text-teal-800 dark:text-teal-300">Plans</span>
+                <p className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">
+                  ₹59 / ₹119
+                </p>
+              </div>
+            </Link>
             <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px]">
               <span className="text-2xl font-black text-foreground">
                 {resumes.length}/{MAX_RESUMES}
@@ -220,7 +248,9 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {atResumeLimit
                 ? `You've used all ${MAX_RESUMES} resume slots. Delete one to create another.`
-                : "Select a resume to edit, or create a new one for another role."}
+                : resumes.length === 0
+                  ? "No resumes yet — pick a template to start building."
+                  : "Select a resume to edit, or create a new one for another role."}
             </p>
           </div>
 
@@ -249,11 +279,31 @@ export default function DashboardPage() {
                 <Plus className="h-6 w-6" />
               </div>
               <h3 className="font-bold text-sm text-foreground group-hover:text-teal-700 transition-colors">
-                + New Resume
+                {resumes.length === 0 ? "Create your first resume" : "+ New Resume"}
               </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                {MAX_RESUMES - resumes.length} of {MAX_RESUMES} slots remaining
+                {resumes.length === 0
+                  ? "Choose a template and fill in your details"
+                  : `${MAX_RESUMES - resumes.length} of ${MAX_RESUMES} slots remaining`}
               </p>
+            </div>
+          )}
+
+          {listHydrated && resumes.length === 0 && (
+            <div className="sm:col-span-1 lg:col-span-2 rounded-2xl border bg-card/60 p-6 flex flex-col justify-center min-h-[220px]">
+              <h3 className="font-bold text-base text-foreground">Build from a template</h3>
+              <p className="text-xs text-muted-foreground mt-2 max-w-md leading-relaxed">
+                We don&apos;t pre-fill a sample resume. Click{" "}
+                <span className="font-semibold text-foreground">Create your first resume</span>, pick
+                a design, then add your experience, skills, and education in the builder.
+              </p>
+              <Button
+                size="sm"
+                onClick={openCreateModal}
+                className="mt-4 w-fit gap-1.5 bg-teal-700 hover:bg-teal-800 text-white"
+              >
+                Choose template <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
           )}
 

@@ -5,6 +5,7 @@ import { useAuth, useClerk, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LogOut, LogIn } from "lucide-react";
+import { AdminNavLink } from "@/components/brand/AdminNavLink";
 
 export function isClerkConfigured() {
   const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -98,15 +99,16 @@ function ClerkAuthNav({
               </Button>
             </Link>
           )}
+          <AdminNavLink compact={compact} />
 
           <Link
-            href="/dashboard"
+            href="/profile"
             className={`flex items-center gap-2 rounded-full border bg-card/80 pl-0.5 sm:pl-1 py-0.5 sm:py-1 min-w-0 hover:bg-muted/50 transition-colors ${
               compact
                 ? "pr-1 sm:pr-2 max-w-[9rem] md:max-w-[11rem]"
                 : "pr-1.5 sm:pr-2.5 max-w-[2.25rem] sm:max-w-[10rem] md:max-w-[14rem]"
             }`}
-            title={email || displayName}
+            title="Edit profile"
           >
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -135,7 +137,7 @@ function ClerkAuthNav({
             size="sm"
             onClick={handleLogout}
             aria-label="Log out"
-            className="text-xs gap-1.5 px-2 sm:px-3 border-teal-800/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 shrink-0"
+            className="text-xs gap-1.5 px-2 sm:px-3 border-border text-foreground bg-background hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 shrink-0"
           >
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden md:inline">Log out</span>

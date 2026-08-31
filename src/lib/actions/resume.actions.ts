@@ -7,6 +7,7 @@ import { ResumeData, TemplateId } from "@/lib/types/resume";
 import { revalidatePath } from "next/cache";
 import { BRAND } from "@/lib/brand";
 import { auth } from "@clerk/nextjs/server";
+import { createBlankResume } from "@/lib/resume/blank-resume";
 
 const MAX_RESUMES = BRAND.maxResumesPerUser;
 
@@ -198,48 +199,29 @@ export async function createResumeAction(
         type: "personal_info",
         order: 0,
         content: {
-          fullName: "Your Name",
-          jobTitle: "Software Engineer",
-          email: "you@example.com",
-          phone: "+1 (555) 000-0000",
-          location: "San Francisco, CA",
+          fullName: "",
+          jobTitle: "",
+          email: "",
+          phone: "",
+          location: "",
         },
       });
 
       revalidatePath("/dashboard");
+      const blank = createBlankResume({
+        id: created.id,
+        userId: created.userId,
+        title: created.title,
+        templateId: created.templateId as TemplateId,
+        themeColor: created.themeColor,
+        fontFamily: created.fontFamily,
+      });
       return {
         success: true,
         resume: {
-          id: created.id,
-          userId: created.userId,
-          title: created.title,
-          templateId: created.templateId as TemplateId,
-          themeColor: created.themeColor,
-          fontFamily: created.fontFamily,
+          ...blank,
           createdAt: created.createdAt.toISOString(),
           updatedAt: created.updatedAt.toISOString(),
-          personalInfo: {
-            fullName: "Your Name",
-            jobTitle: "Software Engineer",
-            email: "you@example.com",
-            phone: "+1 (555) 000-0000",
-            location: "San Francisco, CA",
-          },
-          summary: "",
-          workExperience: [],
-          education: [],
-          skills: [],
-          projects: [],
-          certifications: [],
-          languages: [],
-          sectionOrder: [
-            "personal_info",
-            "summary",
-            "work_experience",
-            "skills",
-            "education",
-            "projects",
-          ],
         },
       };
     }
@@ -247,44 +229,12 @@ export async function createResumeAction(
     // Offline / demo (no DB): local mock only, still prefer signed-in id
     const ownerId = authResult.ok ? authResult.userId : "user_demo";
     const mockId = "res_" + Math.random().toString(36).substring(2, 9);
-    const newResume: ResumeData = {
+    const newResume = createBlankResume({
       id: mockId,
       userId: ownerId,
       title,
       templateId,
-      themeColor: "#0d9488",
-      fontFamily: "Outfit",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      personalInfo: {
-        fullName: "Your Name",
-        jobTitle: "Software Engineer",
-        email: "you@example.com",
-        phone: "+1 (555) 000-0000",
-        location: "San Francisco, CA",
-      },
-      summary: "Passionate engineer dedicated to building clean, impactful web applications.",
-      workExperience: [],
-      education: [],
-      skills: [
-        {
-          id: "cat_1",
-          categoryName: "Core Technologies",
-          skills: ["TypeScript", "React", "Next.js"],
-        },
-      ],
-      projects: [],
-      certifications: [],
-      languages: [],
-      sectionOrder: [
-        "personal_info",
-        "summary",
-        "work_experience",
-        "skills",
-        "education",
-        "projects",
-      ],
-    };
+    });
     return { success: true, resume: newResume };
   } catch (error: any) {
     console.error("Create Resume Error:", error);

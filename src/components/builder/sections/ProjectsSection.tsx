@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { generateId } from "@/lib/utils";
-import { FolderGit2, Plus, Trash2, ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
+import { FolderGit2, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   items: ProjectItem[];
@@ -16,6 +18,9 @@ interface Props {
 export function ProjectsSection({ items, onChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(
     items.length > 0 ? items[0].id : null
+  );
+  const [rewrite, setRewrite] = useState<{ id: string; text: string; meta?: string } | null>(
+    null
   );
 
   const handleAddNew = () => {
@@ -80,12 +85,12 @@ export function ProjectsSection({ items, onChange }: Props) {
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                    >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
@@ -134,7 +139,10 @@ export function ProjectsSection({ items, onChange }: Props) {
                         value={item.technologies?.join(", ") || ""}
                         onChange={(e) =>
                           handleUpdate(item.id, {
-                            technologies: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                            technologies: e.target.value
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean),
                           })
                         }
                         placeholder="e.g., Next.js 15, TypeScript, Tailwind CSS, PostgreSQL"
@@ -142,9 +150,21 @@ export function ProjectsSection({ items, onChange }: Props) {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                        Project Summary & Impact
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Project Summary & Impact
+                        </label>
+                        <AiRewriteButton
+                          disabled={!item.description?.trim()}
+                          onClick={() =>
+                            setRewrite({
+                              id: item.id,
+                              text: item.description,
+                              meta: item.title || undefined,
+                            })
+                          }
+                        />
+                      </div>
                       <Textarea
                         rows={3}
                         value={item.description}
@@ -159,6 +179,17 @@ export function ProjectsSection({ items, onChange }: Props) {
           })}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="project"
+        meta={rewrite?.meta}
+        onApply={(t) => {
+          if (rewrite) handleUpdate(rewrite.id, { description: t });
+        }}
+      />
     </div>
   );
 }

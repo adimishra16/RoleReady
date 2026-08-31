@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { LanguageItem } from "@/lib/types/resume";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateId } from "@/lib/utils";
 import { Languages, Plus, Trash2 } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   items: LanguageItem[];
@@ -21,6 +23,11 @@ const PROFICIENCIES: LanguageItem["proficiency"][] = [
 ];
 
 export function LanguagesSection({ items, onChange }: Props) {
+  const [rewrite, setRewrite] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
+
   const handleAddNew = () => {
     const newItem: LanguageItem = {
       id: "lang_" + generateId(),
@@ -36,6 +43,19 @@ export function LanguagesSection({ items, onChange }: Props) {
 
   const handleRemove = (id: string) => {
     onChange(items.filter((l) => l.id !== id));
+  };
+
+  const applyLanguageRewrite = (id: string, rewritten: string) => {
+    const cleaned = rewritten.replace(/^[-•*\d.)\s]+/, "").trim();
+    const parts = cleaned.split(/[—–\-|:]/).map((p) => p.trim()).filter(Boolean);
+    const language = parts[0] || cleaned;
+    const levelRaw = (parts[1] || "").toLowerCase();
+    const proficiency =
+      PROFICIENCIES.find((p) => levelRaw.includes(p.toLowerCase())) || undefined;
+    handleUpdate(id, {
+      language,
+      ...(proficiency ? { proficiency } : {}),
+    });
   };
 
   return (
@@ -85,6 +105,15 @@ export function LanguagesSection({ items, onChange }: Props) {
                   </option>
                 ))}
               </select>
+              <AiRewriteButton
+                disabled={!item.language.trim()}
+                onClick={() =>
+                  setRewrite({
+                    id: item.id,
+                    text: `${item.language} — ${item.proficiency}`,
+                  })
+                }
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -97,6 +126,16 @@ export function LanguagesSection({ items, onChange }: Props) {
           ))}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="language"
+        onApply={(t) => {
+          if (rewrite) applyLanguageRewrite(rewrite.id, t);
+        }}
+      />
     </div>
   );
 }

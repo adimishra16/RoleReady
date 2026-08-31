@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { CertificationItem } from "@/lib/types/resume";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateId } from "@/lib/utils";
 import { Award, Plus, Trash2 } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   items: CertificationItem[];
@@ -13,6 +15,12 @@ interface Props {
 }
 
 export function CertificationsSection({ items, onChange }: Props) {
+  const [rewrite, setRewrite] = useState<{
+    id: string;
+    text: string;
+    meta?: string;
+  } | null>(null);
+
   const handleAddNew = () => {
     const newItem: CertificationItem = {
       id: "cert_" + generateId(),
@@ -64,14 +72,26 @@ export function CertificationsSection({ items, onChange }: Props) {
                   placeholder="Certification Name (e.g., AWS Solutions Architect)"
                   className="font-semibold text-xs h-8"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => handleRemove(item.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <AiRewriteButton
+                    disabled={!item.name.trim()}
+                    onClick={() =>
+                      setRewrite({
+                        id: item.id,
+                        text: item.name,
+                        meta: item.issuer || undefined,
+                      })
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleRemove(item.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -92,6 +112,17 @@ export function CertificationsSection({ items, onChange }: Props) {
           ))}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="certification"
+        meta={rewrite?.meta}
+        onApply={(t) => {
+          if (rewrite) handleUpdate(rewrite.id, { name: t.trim() });
+        }}
+      />
     </div>
   );
 }

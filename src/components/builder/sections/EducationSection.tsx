@@ -5,7 +5,9 @@ import { EducationItem } from "@/lib/types/resume";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateId } from "@/lib/utils";
-import { GraduationCap, Plus, Trash2, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { GraduationCap, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { AiRewriteButton } from "@/components/builder/ai/AiRewriteButton";
+import { SectionRewriteModal } from "@/components/builder/ai/SectionRewriteModal";
 
 interface Props {
   items: EducationItem[];
@@ -18,6 +20,11 @@ export function EducationSection({ items, onAdd, onUpdate, onRemove }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(
     items.length > 0 ? items[0].id : null
   );
+  const [rewrite, setRewrite] = useState<{
+    id: string;
+    text: string;
+    meta?: string;
+  } | null>(null);
 
   const handleAddNew = () => {
     const newItem: EducationItem = {
@@ -32,6 +39,21 @@ export function EducationSection({ items, onAdd, onUpdate, onRemove }: Props) {
     };
     onAdd(newItem);
     setExpandedId(newItem.id);
+  };
+
+  const educationLine = (item: EducationItem) => {
+    const parts = [item.degree, item.fieldOfStudy].filter(Boolean);
+    return parts.join(" in ") || item.institution || "";
+  };
+
+  const applyEducationRewrite = (id: string, rewritten: string) => {
+    const cleaned = rewritten.replace(/^[-•*\d.)\s]+/, "").trim();
+    const inMatch = cleaned.match(/^(.+?)\s+in\s+(.+)$/i);
+    if (inMatch) {
+      onUpdate(id, { degree: inMatch[1].trim(), fieldOfStudy: inMatch[2].trim() });
+      return;
+    }
+    onUpdate(id, { fieldOfStudy: cleaned });
   };
 
   return (
@@ -69,19 +91,21 @@ export function EducationSection({ items, onAdd, onUpdate, onRemove }: Props) {
                 >
                   <div>
                     <h4 className="text-sm font-semibold text-foreground">
-                      {item.degree ? `${item.degree} ${item.fieldOfStudy ? `in ${item.fieldOfStudy}` : ""}` : "Degree / Field of Study"}
+                      {item.degree
+                        ? `${item.degree}${item.fieldOfStudy ? ` in ${item.fieldOfStudy}` : ""}`
+                        : "Degree / Field of Study"}
                     </h4>
                     <p className="text-xs text-muted-foreground">
                       {item.institution || "Institution not set"}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                    >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </Button>
                     <Button
                       variant="ghost"
@@ -99,6 +123,19 @@ export function EducationSection({ items, onAdd, onUpdate, onRemove }: Props) {
 
                 {isExpanded && (
                   <div className="p-4 pt-0 border-t border-border/50 space-y-3 mt-3 animate-in fade-in-50">
+                    <div className="flex justify-end">
+                      <AiRewriteButton
+                        disabled={!educationLine(item).trim()}
+                        label="Rewrite degree line"
+                        onClick={() =>
+                          setRewrite({
+                            id: item.id,
+                            text: educationLine(item),
+                            meta: item.institution || undefined,
+                          })
+                        }
+                      />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
@@ -178,6 +215,17 @@ export function EducationSection({ items, onAdd, onUpdate, onRemove }: Props) {
           })}
         </div>
       )}
+
+      <SectionRewriteModal
+        isOpen={Boolean(rewrite)}
+        onClose={() => setRewrite(null)}
+        initialText={rewrite?.text || ""}
+        sectionType="education"
+        meta={rewrite?.meta}
+        onApply={(t) => {
+          if (rewrite) applyEducationRewrite(rewrite.id, t);
+        }}
+      />
     </div>
   );
 }

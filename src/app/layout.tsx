@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
 import { Providers } from "@/components/shared/Providers";
 import { themeInitScript } from "@/components/shared/ThemeProvider";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
-const inter = Inter({
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
-const outfit = Outfit({
+const plexSerif = IBM_Plex_Serif({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -33,11 +37,15 @@ export default function RootLayout({
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${plexSans.variable} ${plexSerif.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-screen bg-background text-foreground antialiased font-[family-name:var(--font-outfit)] selection:bg-teal-500/20">
+      <body className="min-h-screen bg-background text-foreground antialiased font-sans">
         <Providers clerkPublishableKey={clerkKey}>{children}</Providers>
       </body>
     </html>

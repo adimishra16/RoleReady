@@ -4,66 +4,67 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 222.2 84% 4.9%;
+    /* Cool slate neutrals — editorial / professional, not pastel AI */
+    --background: 210 20% 98%;
+    --foreground: 215 28% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 28% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 28% 12%;
 
-    /* RoleReady teal — outcome / ready */
-    --primary: 173 80% 30%;
+    /* RoleReady teal — restrained */
+    --primary: 175 64% 26%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 170 20% 95%;
-    --secondary-foreground: 175 40% 16%;
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 215 25% 20%;
 
-    --muted: 170 15% 95%;
-    --muted-foreground: 175 10% 40%;
+    --muted: 210 14% 95%;
+    --muted-foreground: 215 12% 42%;
 
-    --accent: 43 96% 56%;
-    --accent-foreground: 175 50% 12%;
+    --accent: 210 16% 94%;
+    --accent-foreground: 215 25% 18%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 170 18% 88%;
-    --input: 170 18% 88%;
-    --ring: 173 80% 30%;
+    --border: 214 16% 88%;
+    --input: 214 16% 88%;
+    --ring: 175 64% 26%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
+    --background: 222 28% 7%;
+    --foreground: 210 20% 96%;
 
-    --card: 224 71% 6%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 24% 9%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 224 71% 6%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 24% 9%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 172 66% 45%;
-    --primary-foreground: 175 60% 6%;
+    --primary: 173 48% 42%;
+    --primary-foreground: 175 40% 8%;
 
-    --secondary: 175 25% 14%;
-    --secondary-foreground: 170 20% 92%;
+    --secondary: 217 18% 14%;
+    --secondary-foreground: 210 16% 90%;
 
-    --muted: 175 20% 14%;
-    --muted-foreground: 170 12% 65%;
+    --muted: 217 16% 14%;
+    --muted-foreground: 215 12% 62%;
 
-    --accent: 43 90% 50%;
-    --accent-foreground: 175 50% 8%;
+    --accent: 217 16% 14%;
+    --accent-foreground: 210 16% 92%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 175 20% 18%;
-    --input: 175 20% 18%;
-    --ring: 172 66% 45%;
+    --border: 217 16% 18%;
+    --input: 217 16% 18%;
+    --ring: 173 48% 42%;
   }
 }
 
@@ -72,43 +73,44 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-teal-500/20 selection:text-teal-800 dark:selection:text-teal-200;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+    letter-spacing: -0.011em;
+  }
+  h1,
+  h2,
+  .font-display {
+    font-family: var(--font-display), "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Glassmorphism utils */
+/* Subtle surface — avoid heavy glassmorphism */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: hsl(var(--card) / 0.92);
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: hsl(var(--card) / 0.94);
+  border: 1px solid hsl(var(--border));
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.4);
-  border-radius: 9999px;
+  background: hsl(var(--muted-foreground) / 0.28);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.7);
+  background: hsl(var(--muted-foreground) / 0.45);
 }
 
-/* Print Optimization — Strict Resume Sheet Only */
 @media print {
   @page {
     margin: 0;
@@ -117,7 +119,8 @@
   body * {
     visibility: hidden !important;
   }
-  #resume-canvas, #resume-canvas * {
+  #resume-canvas,
+  #resume-canvas * {
     visibility: visible !important;
   }
   #resume-canvas {
@@ -134,13 +137,12 @@
   }
 }
 
-/* A4 resume page — fixed print size; never shrink with viewport */
 .a4-page {
   width: 210mm;
   min-width: 210mm;
   max-width: 210mm;
   min-height: 297mm;
   background: white;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 8px 24px rgba(15, 23, 42, 0.06);
   box-sizing: border-box;
 }

@@ -195,7 +195,7 @@ export function VisualTemplateCardPicker({
             onClick={() => setFilterCategory("creative")}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               filterCategory === "creative"
-                ? "bg-purple-600 text-white shadow-md"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -234,7 +234,7 @@ export function VisualTemplateCardPicker({
                 </Badge>
 
                 {isSelected ? (
-                  <span className="flex items-center gap-1 text-[11px] font-black text-primary">
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-primary">
                     <Check className="h-3.5 w-3.5 stroke-[3]" /> Selected
                   </span>
                 ) : (
@@ -254,7 +254,7 @@ export function VisualTemplateCardPicker({
               {/* Bottom Card Title & Summary */}
               <div className="p-4 bg-card border-t space-y-1">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-black text-sm text-foreground group-hover:text-primary transition-colors">
+                  <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
                     {option.name}
                   </h4>
                   {option.isAts && (

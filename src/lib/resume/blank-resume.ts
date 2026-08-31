@@ -16,7 +16,7 @@ export function createBlankResume(overrides: {
     title: overrides.title || "Untitled Resume",
     templateId: overrides.templateId || "modern",
     themeColor: overrides.themeColor || "#0d9488",
-    fontFamily: overrides.fontFamily || "Outfit, sans-serif",
+    fontFamily: overrides.fontFamily || "IBM Plex Sans, sans-serif",
     createdAt: now,
     updatedAt: now,
     personalInfo: {

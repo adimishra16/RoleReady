@@ -19,6 +19,23 @@ const config: Config = {
       screens: {
         xs: "400px",
       },
+      fontFamily: {
+        sans: [
+          "var(--font-sans)",
+          "IBM Plex Sans",
+          "Segoe UI",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+        display: [
+          "var(--font-display)",
+          "IBM Plex Serif",
+          "Georgia",
+          "Times New Roman",
+          "serif",
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

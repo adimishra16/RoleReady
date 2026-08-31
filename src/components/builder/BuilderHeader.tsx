@@ -54,10 +54,10 @@ const COLOR_PRESETS = [
 ];
 
 const FONT_PRESETS = [
-  { label: "Outfit (Brand)", value: "Outfit, sans-serif" },
-  { label: "Inter (Modern Sans)", value: "Inter, sans-serif" },
-  { label: "Georgia (Classic Serif)", value: "Georgia, serif" },
-  { label: "Playfair (Luxury Serif)", value: "'Playfair Display', serif" },
+  { label: "IBM Plex Sans", value: "IBM Plex Sans, sans-serif" },
+  { label: "IBM Plex Serif", value: "IBM Plex Serif, Georgia, serif" },
+  { label: "Georgia (Classic)", value: "Georgia, serif" },
+  { label: "Inter (Modern)", value: "Inter, sans-serif" },
 ];
 
 export function BuilderHeader({
@@ -161,7 +161,7 @@ export function BuilderHeader({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 shadow-xs no-print">
+    <header className="sticky top-0 z-40 w-full border-b bg-card/95 px-4 py-2.5 flex items-center justify-between gap-3 shadow-none no-print">
       {/* Left: Back & Title */}
       <div className="flex items-center gap-3 min-w-0">
         <Link href="/dashboard">
@@ -297,7 +297,7 @@ export function BuilderHeader({
           variant="outline"
           size="sm"
           onClick={() => setIsCoverLetterOpen(true)}
-          className="hidden sm:inline-flex gap-1.5 text-xs text-purple-700 dark:text-purple-300 border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+          className="hidden sm:inline-flex gap-1.5 text-xs"
         >
           <FileText className="h-3.5 w-3.5" />
           Cover Letter
@@ -318,11 +318,11 @@ export function BuilderHeader({
         <ClerkSignedInGate>
           {({ isSignedIn, isLoaded }) => (
             <Button
-              variant="gradient"
+              variant="default"
               size="sm"
               onClick={() => handleExportPdf(isSignedIn)}
               disabled={isExportingPdf || !isLoaded}
-              className="gap-1.5 text-xs shadow-sm"
+              className="gap-1.5 text-xs"
               title={isSignedIn ? "Download PDF" : "Sign in to download PDF"}
             >
               {isExportingPdf ? (

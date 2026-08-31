@@ -142,16 +142,16 @@ export function SectionRewriteModal({
     <Dialog open={isOpen} onOpenChange={onClose} className="max-w-2xl">
       <DialogHeader>
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-400">
+          <div className="p-2 rounded-lg bg-muted text-foreground">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <DialogTitle className="flex items-center gap-2">
-              AI Rewrite — {dialogTitle}
-              <Badge variant="ai">3 variations</Badge>
+            <DialogTitle className="flex items-center gap-2 font-display font-semibold">
+              Rewrite — {dialogTitle}
+              <Badge variant="outline">3 options</Badge>
             </DialogTitle>
             <DialogDescription>
-              Polish this section for clarity, impact, and ATS-friendly wording.
+              Refine this section for clarity, impact, and ATS-friendly wording.
             </DialogDescription>
           </div>
         </div>

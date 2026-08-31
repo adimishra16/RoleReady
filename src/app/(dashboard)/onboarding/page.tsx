@@ -161,7 +161,7 @@ function OnboardingPageInner({
               <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary">
                 <Sparkles className="h-6 w-6" />
               </div>
-              <h2 className="text-2xl font-black text-foreground">Tell us about yourself</h2>
+              <h2 className="font-display text-2xl font-semibold text-foreground">Tell us about yourself</h2>
               <p className="text-xs text-muted-foreground">
                 We'll tailor your AI assistant and achievement templates to your target position.
               </p>
@@ -215,10 +215,10 @@ function OnboardingPageInner({
           <div className="space-y-8 animate-in fade-in-50 duration-300">
             {/* Hero Heading */}
             <div className="text-center max-w-2xl mx-auto space-y-2">
-              <Badge variant="ai" className="mb-1">
-                ✨ 7 Designer Templates Included
+              <Badge variant="outline" className="mb-1">
+                7 professional templates
               </Badge>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+              <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
                 Select a resume design to start
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
@@ -241,7 +241,7 @@ function OnboardingPageInner({
             <div className="inline-flex p-3 rounded-2xl bg-emerald-500/10 text-emerald-600">
               <Check className="h-8 w-8 stroke-[3]" />
             </div>
-            <h2 className="text-2xl font-black text-foreground">Ready to Build!</h2>
+            <h2 className="font-display text-2xl font-semibold text-foreground">Ready to Build!</h2>
 
             <div className="p-4 bg-muted/40 rounded-2xl text-left space-y-2.5 text-xs">
               <div className="flex justify-between">

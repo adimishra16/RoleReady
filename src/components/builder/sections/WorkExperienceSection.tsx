@@ -310,8 +310,8 @@ export function WorkExperienceSection({
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Key Achievements & Responsibilities
                         </label>
-                        <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
-                          Use ✨ AI Rewrite to quantify impact
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          Use Rewrite to strengthen bullets
                         </span>
                       </div>
 
@@ -340,7 +340,7 @@ export function WorkExperienceSection({
                                       item.company
                                     )
                                   }
-                                  className="absolute right-2 top-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-600/10 hover:bg-purple-600 text-purple-700 hover:text-white dark:text-purple-300 text-[10px] font-semibold transition-all shadow-xs"
+                                  className="absolute right-2 top-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-medium transition-colors"
                                 >
                                   <Sparkles className="h-3 w-3" />
                                   Rewrite

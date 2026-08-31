@@ -195,7 +195,7 @@ export default function DashboardPage() {
       {/* Main Dashboard Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-8 space-y-8">
         {/* Welcome & Stats Hero */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-teal-600/10 via-teal-700/5 to-amber-500/10 border border-teal-600/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="p-6 sm:p-8 rounded-2xl bg-card border border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-1.5">
             <Badge className="mb-1 bg-teal-700/10 text-teal-800 dark:text-teal-300 border-teal-700/20" variant="outline">
               {BRAND.tagline}
@@ -212,7 +212,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-3">
             <Link href="/profile">
               <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px] hover:border-teal-600/40 transition-colors cursor-pointer">
-                <span className="text-sm font-black text-teal-800 dark:text-teal-300">Profile</span>
+                <span className="text-sm font-semibold text-foreground">Profile</span>
                 <p className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">
                   Edit details
                 </p>
@@ -220,14 +220,14 @@ export default function DashboardPage() {
             </Link>
             <Link href="/pricing">
               <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px] hover:border-teal-600/40 transition-colors cursor-pointer">
-                <span className="text-sm font-black text-teal-800 dark:text-teal-300">Plans</span>
+                <span className="text-sm font-semibold text-foreground">Plans</span>
                 <p className="text-[11px] text-muted-foreground uppercase font-semibold mt-0.5">
                   ₹59 / ₹119
                 </p>
               </div>
             </Link>
             <div className="bg-card px-4 py-3 rounded-2xl border shadow-xs text-center min-w-[110px]">
-              <span className="text-2xl font-black text-foreground">
+              <span className="text-2xl font-semibold text-foreground">
                 {resumes.length}/{MAX_RESUMES}
               </span>
               <p className="text-[11px] text-muted-foreground uppercase font-semibold">Resumes</p>

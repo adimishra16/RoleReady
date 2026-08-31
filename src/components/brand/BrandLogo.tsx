@@ -67,7 +67,7 @@ export function BrandLogo({
         <div className="min-w-0 leading-tight">
           <span
             className={cn(
-              "font-extrabold tracking-tight text-foreground block",
+              "font-semibold tracking-tight text-foreground block font-display",
               s.text,
               wordmarkClassName
             )}

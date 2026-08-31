@@ -346,15 +346,18 @@ export function scoreResumeAts(
       : c
   );
 
-  let summary = `You scored ${score}/100 for${targetRole ? ` “${targetRole}”` : " ATS readiness"}.`;
+  let summary = `Score ${score}/100 for${targetRole ? ` “${targetRole}”` : " ATS readiness"}.`;
   if (grade === "Needs work") {
-    summary = `You scored ${score}/100. Fix ${failed.length} gaps${targetRole ? ` for ${targetRole}` : ""}.`;
+    summary =
+      score < 25
+        ? `Score ${score}/100 — not interview-ready. This looks incomplete or placeholder-heavy${targetRole ? ` for ${targetRole}` : ""}. Fix ${Math.max(failed.length, 1)} critical gaps before applying.`
+        : `Score ${score}/100 — weak. Real ATS screens will likely reject this${targetRole ? ` for ${targetRole}` : ""}. Fix ${failed.length} gaps now.`;
   } else if (grade === "Fair") {
-    summary = `You scored ${score}/100. Strengthen role keywords and quantified bullets.`;
+    summary = `Score ${score}/100 — middling. You’ll lose to candidates with stronger keywords and metrics${targetRole ? ` for ${targetRole}` : ""}.`;
   } else if (grade === "Good") {
-    summary = `You scored ${score}/100 — strong base for${targetRole ? ` ${targetRole}` : " ATS"}. Polish missing keywords.`;
+    summary = `Score ${score}/100 — competitive base${targetRole ? ` for ${targetRole}` : ""}, but gaps still cost interviews. Tighten keywords and proof.`;
   } else {
-    summary = `You scored ${score}/100 — excellent role-ready ATS profile${targetRole ? ` for ${targetRole}` : ""}.`;
+    summary = `Score ${score}/100 — strong ATS + role fit${targetRole ? ` for ${targetRole}` : ""}. Keep quantifying impact.`;
   }
 
   return {

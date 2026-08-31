@@ -100,7 +100,7 @@ export function TemplateGalleryModal({
     <Dialog
       open={isOpen}
       onOpenChange={onClose}
-      className="max-w-5xl max-h-[min(92dvh,calc(100vh-1.5rem))] flex flex-col overflow-hidden p-0"
+      className="max-w-5xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden p-0"
     >
       <div className="shrink-0 px-6 pt-6 pr-12 border-b pb-4">
         <DialogHeader className="mb-0">

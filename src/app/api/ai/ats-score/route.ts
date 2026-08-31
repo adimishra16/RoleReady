@@ -25,17 +25,34 @@ function clampScore(n: unknown): number {
 
 function fromHeuristic(resumeData: ResumeData, targetRole?: string): AiAtsScoreResponse {
   const base = scoreResumeAts(resumeData, { targetRole });
+  const failed = base.checks.filter((c) => !c.passed);
+  const passed = base.checks.filter((c) => c.passed);
+
+  const strengths =
+    base.score < 40
+      ? passed.length
+        ? [`Only real positives: ${passed.slice(0, 2).map((c) => c.label).join("; ")}`]
+        : ["Almost nothing usable yet — this reads like a blank template."]
+      : [
+          ...base.roleKeywordsMatched.slice(0, 2).map((k) => `Role keyword present: ${k}`),
+          ...passed.slice(0, 3).map((c) => c.label),
+        ].slice(0, 4);
+
+  const improvements = [
+    ...failed.slice(0, 4).map((c) => `Fix now: ${c.tip}`),
+    ...base.roleKeywordsMissing
+      .slice(0, 3)
+      .map((k) => `Missing for this role — ATS will skip you without: ${k}`),
+  ].slice(0, 8);
+
   return {
     score: base.score,
     grade: base.grade,
-    strengths: [
-      ...base.roleKeywordsMatched.slice(0, 2).map((k) => `Role keyword present: ${k}`),
-      ...base.checks.filter((c) => c.passed).slice(0, 3).map((c) => c.label),
-    ].slice(0, 4),
-    improvements: [
-      ...base.roleKeywordsMissing.slice(0, 3).map((k) => `Add role keyword: ${k}`),
-      ...base.checks.filter((c) => !c.passed).slice(0, 3).map((c) => c.tip),
-    ].slice(0, 5),
+    strengths,
+    improvements:
+      improvements.length > 0
+        ? improvements
+        : ["Tighten bullets with metrics or this stays mid-pack in ATS ranking."],
     summary: base.summary,
     source: "heuristic",
   };
@@ -85,7 +102,8 @@ Education: ${JSON.stringify(resumeData?.education || [])}
 Projects: ${JSON.stringify(resumeData?.projects || [])}
 Certifications: ${JSON.stringify(resumeData?.certifications || [])}
 
-Score specifically for ATS parseability AND fit to TARGET ROLE. Return pure JSON only with score 0–100.`;
+Score specifically for ATS parseability AND fit to TARGET ROLE.
+Be brutal and honest — empty or placeholder resumes must score very low. Return pure JSON only with score 0–100.`;
 
     const model = getAiModel();
     if (model) {

@@ -36,15 +36,24 @@ Format your response strictly as JSON with the following structure:
   "recommendations": string[]
 }`,
 
-  atsScorer: `You are an expert ATS (Applicant Tracking System) auditor and resume coach.
-Score this resume for ATS readiness AND fit to a TARGET ROLE on a scale of 0 to 100 (integer only).
-Evaluate: structure, completeness, quantification, clarity, ATS-safe formatting, and keyword alignment to the target role.
+  atsScorer: `You are a ruthless hiring manager and ATS auditor. Be BRUTAL and HONEST — never polite filler, never soft-pedal bad resumes.
 
-Scoring guide:
-- 85–100: Excellent — complete, quantified, strong role keyword fit
-- 70–84: Good — solid with minor gaps vs the target role
-- 50–69: Fair — missing sections or weak role keywords
-- 0–49: Needs work — incomplete or poor role alignment
+Score ATS readiness AND fit to the TARGET ROLE from 0 to 100 (integer only). Empty or near-empty resumes must score very low (typically under 25). Do NOT inflate scores to be "encouraging."
+
+Evaluate harshly:
+- Missing contact / name / email = automatic heavy penalty
+- Vague bullets without metrics, ownership, or outcomes
+- Generic summary that could belong to anyone
+- Weak or missing role keywords vs TARGET ROLE
+- Thin experience, no projects, no skills for the role
+- Fancy templates that hurt ATS parseability
+
+Scoring guide (strict):
+- 85–100: Excellent — rare; quantified impact + strong role keyword fit + complete sections
+- 70–84: Good — hireable with small gaps
+- 50–69: Fair — would struggle in a real ATS screen
+- 25–49: Needs work — serious gaps; unlikely to get interviews as-is
+- 0–24: Critical — incomplete / placeholder / not job-ready
 
 Return ONLY valid JSON:
 {
@@ -58,9 +67,11 @@ Return ONLY valid JSON:
 }
 
 Rules:
-- "score" must be an integer from 0 to 100 inclusive.
-- Tailor strengths/improvements to the TARGET ROLE.
-- summary: one sentence mentioning the score out of 100 and the target role.`,
+- "score" integer 0–100. Prefer under-scoring over over-scoring.
+- "strengths": 0–4 items. If the resume is weak, strengths may be empty or one harsh-but-true note (e.g. "Template is ATS-safe — content is not.").
+- "improvements": 4–8 blunt, specific actions. Call out fluff, missing proof, and role mismatch directly. No sugarcoating ("consider maybe…") — use direct language ("This will get rejected because…", "Recruiters will skip this because…").
+- "summary": 1–2 sentences. State the score/100, the verdict, and the #1 reason it fails or succeeds for the TARGET ROLE. Sound like a tough coach, not a compliment bot.
+- Never invent experience the candidate did not write.`,
 
   coverLetter: `You are an elite career coach.
 Write a personalized, highly persuasive 3-paragraph cover letter for the candidate applying to the given job description based on their resume.

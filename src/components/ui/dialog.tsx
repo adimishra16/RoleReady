@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,16 @@ interface DialogProps {
 }
 
 /**
- * Viewport-safe modal shell.
- * Overlay scrolls when content is tall so the header is never clipped at the top.
+ * Viewport-safe modal rendered via portal to document.body.
+ * Avoids clipping from sticky/blur parents (e.g. builder header backdrop-filter).
  */
 export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
@@ -35,27 +42,26 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
-      {/* Backdrop */}
+  return createPortal(
+    <div className="fixed inset-0 z-[200] overflow-y-auto overscroll-contain">
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in-0 duration-200"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
         onClick={() => onOpenChange(false)}
         aria-hidden
       />
 
-      {/* Centering frame — min-h-full keeps short modals centered and tall ones scrollable from the top */}
-      <div className="relative flex min-h-full items-center justify-center p-3 sm:p-6">
+      <div className="relative flex min-h-full items-start justify-center px-3 py-4 sm:px-6 sm:py-8">
         <div
           role="dialog"
           aria-modal="true"
           className={cn(
-            "relative z-50 w-full max-w-lg my-auto",
-            "max-h-[min(92dvh,calc(100vh-1.5rem))] overflow-y-auto overscroll-contain",
-            "rounded-2xl border bg-card p-6 shadow-2xl",
-            "transition-all duration-200 animate-in zoom-in-95 fade-in-0",
+            "relative z-[201] w-full max-w-lg",
+            "max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-4rem)]",
+            "overflow-y-auto overscroll-contain",
+            "rounded-2xl border bg-card p-5 sm:p-6 shadow-2xl",
+            "animate-in fade-in-0 zoom-in-95 duration-200",
             className
           )}
           onClick={(e) => e.stopPropagation()}
@@ -71,7 +77,8 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -93,7 +100,7 @@ export function DialogTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
-      className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+      className={cn("text-lg font-semibold leading-snug tracking-tight", className)}
       {...props}
     />
   );
@@ -105,7 +112,7 @@ export function DialogDescription({
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
-      className={cn("text-sm text-muted-foreground mt-1", className)}
+      className={cn("text-sm text-muted-foreground mt-1 leading-relaxed", className)}
       {...props}
     />
   );

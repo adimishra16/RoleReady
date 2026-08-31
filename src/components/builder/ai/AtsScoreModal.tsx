@@ -98,8 +98,8 @@ export function AtsScoreModal({ isOpen, onClose, data }: Props) {
           Role-based ATS Score
         </DialogTitle>
         <DialogDescription>
-          Score out of 100 for your target role. Instant checklist is free;{" "}
-          <strong>Check with AI</strong> needs the ₹59/mo AI plan.
+          Brutal, honest score out of 100 for your target role. Instant checklist is free;{" "}
+          <strong>Check with AI</strong> needs the ₹59/mo AI plan — it will not sugarcoat gaps.
         </DialogDescription>
       </DialogHeader>
 

@@ -1,6 +1,8 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import {
+  getUserById,
+  isDbConfigured,
+  updateUser,
+} from "@/lib/appwrite/db";
 import { BILLING_PLANS, type PlanId } from "@/lib/billing/plans";
 
 export async function activateUserSubscription(opts: {
@@ -10,10 +12,10 @@ export async function activateUserSubscription(opts: {
   razorpayCustomerId?: string;
   periodEnd?: Date | null;
 }) {
-  if (!db) return;
+  if (!isDbConfigured()) return;
   const plan = BILLING_PLANS[opts.planId];
 
-  const patch: Record<string, unknown> = {
+  await updateUser(opts.userId, {
     plan: opts.planId,
     subscriptionStatus: "active",
     aiEnabled: plan.entitlements.aiEnabled,
@@ -21,44 +23,32 @@ export async function activateUserSubscription(opts: {
     aiOtherLimit: plan.entitlements.aiOtherLimit,
     aiRewriteUsed: 0,
     aiOtherUsed: 0,
-    updatedAt: new Date(),
-  };
-
-  if (opts.razorpaySubscriptionId) {
-    patch.razorpaySubscriptionId = opts.razorpaySubscriptionId;
-  }
-  if (opts.razorpayCustomerId) {
-    patch.razorpayCustomerId = opts.razorpayCustomerId;
-  }
-  if (opts.periodEnd !== undefined) {
-    patch.subscriptionCurrentPeriodEnd = opts.periodEnd;
-  }
-
-  await db.update(users).set(patch).where(eq(users.id, opts.userId));
+    ...(opts.razorpaySubscriptionId
+      ? { razorpaySubscriptionId: opts.razorpaySubscriptionId }
+      : {}),
+    ...(opts.razorpayCustomerId ? { razorpayCustomerId: opts.razorpayCustomerId } : {}),
+    ...(opts.periodEnd !== undefined
+      ? { subscriptionCurrentPeriodEnd: opts.periodEnd }
+      : {}),
+  });
 }
 
 export async function markSubscriptionCancelled(userId: string) {
-  if (!db) return;
-  await db
-    .update(users)
-    .set({
-      subscriptionStatus: "cancelled",
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, userId));
+  if (!isDbConfigured()) return;
+  await updateUser(userId, { subscriptionStatus: "cancelled" });
 }
 
 export async function downgradeToFree(userId: string) {
-  if (!db) return;
-  await db
-    .update(users)
-    .set({
-      plan: "free",
-      subscriptionStatus: "none",
-      aiEnabled: false,
-      razorpaySubscriptionId: null,
-      subscriptionCurrentPeriodEnd: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, userId));
+  if (!isDbConfigured()) return;
+  await updateUser(userId, {
+    plan: "free",
+    subscriptionStatus: "none",
+    aiEnabled: false,
+    razorpaySubscriptionId: null,
+    subscriptionCurrentPeriodEnd: null,
+  });
+}
+
+export async function getUserPlanRow(userId: string) {
+  return getUserById(userId);
 }

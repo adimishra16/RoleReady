@@ -139,8 +139,9 @@ export default function AdminDashboardPage() {
         <Shield className="h-10 w-10 text-muted-foreground" />
         <h1 className="text-xl font-bold">Admin access required</h1>
         <p className="text-sm text-muted-foreground max-w-md">
-          Your account is not an admin. Roles are set only in the database (Neon SQL), not from this
-          app.
+          Your account is not an admin. Set{" "}
+          <code className="text-[11px] bg-muted px-1 rounded">role = &quot;admin&quot;</code> on
+          your user document in the Appwrite Console (users collection).
         </p>
         <Link href="/dashboard">
           <Button variant="outline">Back to dashboard</Button>
@@ -179,8 +180,9 @@ export default function AdminDashboardPage() {
               Admin dashboard
             </h1>
             <p className="text-sm text-muted-foreground">
-              Grant AI access and set token limits. Role changes are SQL-only (
-              <code className="text-[11px] bg-muted px-1 rounded">UPDATE users SET role = &apos;admin&apos; …</code>
+              Manage AI access and plans. Admins always have unlimited AI. Promote users only in
+              Appwrite Console (
+              <code className="text-[11px] bg-muted px-1 rounded">users.role = &quot;admin&quot;</code>
               ).
             </p>
           </div>
@@ -347,17 +349,23 @@ export default function AdminDashboardPage() {
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <Button
-                          size="sm"
-                          variant={u.aiEnabled ? "default" : "outline"}
-                          className={`h-7 text-[11px] ${
-                            u.aiEnabled ? "bg-teal-700 hover:bg-teal-800 text-white" : ""
-                          }`}
-                          disabled={pending}
-                          onClick={() => saveUser(u.id, { aiEnabled: !u.aiEnabled })}
-                        >
-                          {u.aiEnabled ? "Enabled" : "Disabled"}
-                        </Button>
+                        {u.role === "admin" ? (
+                          <Badge className="bg-amber-600/15 text-amber-800 dark:text-amber-300 border-amber-500/30">
+                            Unlimited
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant={u.aiEnabled ? "default" : "outline"}
+                            className={`h-7 text-[11px] ${
+                              u.aiEnabled ? "bg-teal-700 hover:bg-teal-800 text-white" : ""
+                            }`}
+                            disabled={pending}
+                            onClick={() => saveUser(u.id, { aiEnabled: !u.aiEnabled })}
+                          >
+                            {u.aiEnabled ? "Enabled" : "Disabled"}
+                          </Button>
+                        )}
                       </td>
                       <td className="px-3 py-3 space-y-1.5">
                         <p className="text-muted-foreground">
@@ -455,11 +463,10 @@ export default function AdminDashboardPage() {
         </section>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Promote yourself once in Neon Console:
-          <br />
-          <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">
-            UPDATE users SET role = &apos;admin&apos; WHERE email = &apos;your@email.com&apos;;
-          </code>
+          Promote an admin in Appwrite Console → Databases → <code>users</code> → your document →
+          set attribute <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">role</code> to{" "}
+          <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">admin</code>. Admins get
+          unlimited AI automatically and can open <code>/admin</code>.
         </p>
       </main>
     </div>

@@ -7,6 +7,7 @@ const FALLBACK: AiAccessStatus = {
   enabled: false,
   globallyEnabled: false,
   authenticated: false,
+  isAdmin: false,
   userId: null,
   reason: "db_missing",
   rewrite: { used: 0, limit: 0, remaining: 0 },

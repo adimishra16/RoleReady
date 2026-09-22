@@ -1,34 +1,20 @@
 "use client";
 
 import React from "react";
-import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
+import { AuthProvider } from "@/components/shared/AuthProvider";
 import { EnsureUserSynced } from "@/components/shared/EnsureUserSynced";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import { isAppwriteConfigured } from "@/lib/appwrite/config";
 
-interface Props {
-  children: React.ReactNode;
-  clerkPublishableKey?: string;
-}
+export function Providers({ children }: { children: React.ReactNode }) {
+  const appwriteOn = isAppwriteConfigured();
 
-export function Providers({ children, clerkPublishableKey }: Props) {
-  const isClerkActive =
-    clerkPublishableKey && !clerkPublishableKey.includes("placeholder");
-
-  const content = (
-    <ThemeProvider>
-      {isClerkActive ? <EnsureUserSynced /> : null}
-      {children}
-    </ThemeProvider>
+  return (
+    <AuthProvider>
+      <ThemeProvider>
+        {appwriteOn ? <EnsureUserSynced /> : null}
+        {children}
+      </ThemeProvider>
+    </AuthProvider>
   );
-
-  if (isClerkActive) {
-    return (
-      <ClerkProvider publishableKey={clerkPublishableKey} appearance={clerkAppearance}>
-        {content}
-      </ClerkProvider>
-    );
-  }
-
-  return content;
 }

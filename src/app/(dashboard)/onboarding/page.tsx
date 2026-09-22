@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,20 +11,21 @@ import { createResumeAction } from "@/lib/actions/resume.actions";
 import { TemplateId } from "@/lib/types/resume";
 import { VisualTemplateCardPicker } from "@/components/templates/VisualTemplateCardPicker";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { AuthNavActions, isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { AuthNavActions, isAuthConfigured } from "@/components/brand/AuthNavActions";
 import { IndustrySelect } from "@/components/profile/IndustrySelect";
 import { industryValueForSave } from "@/lib/profile/industries";
 import { TEMPLATE_OPTIONS } from "@/components/templates/TemplateGalleryModal";
 import { Sparkles, ArrowRight, ArrowLeft, Check, LayoutTemplate, ShieldCheck } from "lucide-react";
+import { useUser } from "@/components/shared/AuthProvider";
 
 export default function OnboardingPage() {
-  if (isClerkConfigured()) {
-    return <OnboardingPageClerk />;
+  if (isAuthConfigured()) {
+    return <OnboardingPageAuthed />;
   }
   return <OnboardingPageInner />;
 }
 
-function OnboardingPageClerk() {
+function OnboardingPageAuthed() {
   const { user, isLoaded } = useUser();
   if (!isLoaded) {
     return (
@@ -38,11 +38,7 @@ function OnboardingPageClerk() {
     <OnboardingPageInner
       clerkUserId={user?.id}
       clerkEmail={user?.primaryEmailAddress?.emailAddress}
-      clerkName={
-        [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-        user?.username ||
-        undefined
-      }
+      clerkName={user?.fullName || user?.firstName || user?.username || undefined}
     />
   );
 }

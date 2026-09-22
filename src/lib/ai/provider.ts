@@ -3,7 +3,7 @@ import { google } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 
 const NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/";
-const DEFAULT_NEBIUS_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731";
+const DEFAULT_NEBIUS_MODEL = "deepseek-ai/DeepSeek-V3-0324";
 
 function hasSecret(value: string | undefined): value is string {
   const trimmed = value?.trim();

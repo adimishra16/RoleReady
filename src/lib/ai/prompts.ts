@@ -19,6 +19,7 @@ Guidelines:
 - Highlight core expertise, years of experience, and signature technical or domain strengths.
 - Emphasize business impact, leadership, and scalable problem-solving.
 - Avoid clichés (like "hardworking team player"). Write with confident, modern executive authority.
+- If steer instructions are provided (e.g. more concise, more detail, AI/ML focused, DevOps focused), follow them closely while staying truthful to the resume.
 - Output ONLY the polished summary text.`,
 
   jobMatcher: `You are an ATS (Applicant Tracking System) and hiring manager intelligence simulator.

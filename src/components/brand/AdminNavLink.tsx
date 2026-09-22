@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getMyRoleAction } from "@/lib/admin/require-admin";
-import { isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { isAuthConfigured } from "@/components/brand/AuthNavActions";
 import { Shield } from "lucide-react";
 
-/** Shows Admin link only when Neon role === admin */
+/** Shows Admin link only when Appwrite users.role === admin */
 export function AdminNavLink({ compact = false }: { compact?: boolean }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!isClerkConfigured()) return;
+    if (!isAuthConfigured()) return;
     let cancelled = false;
     void (async () => {
       const res = await getMyRoleAction();

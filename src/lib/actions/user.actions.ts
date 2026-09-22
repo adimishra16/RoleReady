@@ -1,9 +1,13 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { db, isDbConfigured } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth, currentUser } from "@/lib/appwrite/auth";
+import {
+  ensureAppUserLinked,
+  getUserById,
+  isDbConfigured,
+  updateUser,
+  upsertUser,
+} from "@/lib/appwrite/db";
 
 export type SyncUserResult = {
   success: boolean;
@@ -13,45 +17,12 @@ export type SyncUserResult = {
 };
 
 /**
- * Resolve email conflict so Clerk user id can always be inserted/upserted.
- * Demo rows are deleted; other orphans get an archived email to free the unique constraint.
+ * Upsert / re-link the signed-in Appwrite Auth user into the `users` collection.
+ * Migrated rows keyed by old ids are matched by email and copied onto the Auth user id.
  */
-async function freeEmailForClerkUser(clerkUserId: string, email: string) {
-  if (!db) return;
-
-  const existingByEmail = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-
-  if (existingByEmail.length === 0 || existingByEmail[0].id === clerkUserId) {
-    return;
-  }
-
-  const orphanId = existingByEmail[0].id;
-  if (orphanId.startsWith("user_demo") || orphanId === "demo") {
-    await db.delete(users).where(eq(users.id, orphanId));
-    return;
-  }
-
-  await db
-    .update(users)
-    .set({
-      email: `archived+${orphanId.slice(0, 12)}-${Date.now()}@roleready.local`,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, orphanId));
-}
-
-/**
- * Upsert the signed-in Clerk user into Neon `users`.
- * Always pushes on login — insert or update, no skip paths when DB + session exist.
- * Requires Clerk middleware so the session cookie is visible to auth().
- */
-export async function syncClerkUserAction(): Promise<SyncUserResult> {
+export async function syncAppwriteUserAction(): Promise<SyncUserResult> {
   try {
-    if (!isDbConfigured || !db) {
+    if (!isDbConfigured()) {
       return { success: false, error: "Database not configured" };
     }
 
@@ -59,160 +30,103 @@ export async function syncClerkUserAction(): Promise<SyncUserResult> {
     if (!session.userId) {
       return {
         success: false,
-        error: "Not signed in (server session missing — ensure middleware is running)",
+        error: "Not signed in (server session missing)",
       };
     }
 
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return { success: false, error: "Clerk user not found via API" };
+    const appUser = await currentUser();
+    if (!appUser) {
+      return { success: false, error: "Appwrite Auth user not found" };
     }
 
-    const email =
-      clerkUser.primaryEmailAddress?.emailAddress ||
-      clerkUser.emailAddresses?.[0]?.emailAddress ||
-      // Last resort: never block login sync — placeholder still lands the Clerk id in Neon
-      `${session.userId}@users.clerk.roleready.local`;
+    const email = (appUser.email || `${session.userId}@users.appwrite.roleready.local`)
+      .trim()
+      .toLowerCase();
+    const name = appUser.name || (email.includes("@") ? email.split("@")[0] : null) || "User";
 
-    const name =
-      [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-      clerkUser.username ||
-      (email.includes("@") ? email.split("@")[0] : null) ||
-      "User";
-
-    const existingById = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
-
-    const alreadyExists = existingById.length > 0;
-
-    await freeEmailForClerkUser(session.userId, email);
-
-    await db
-      .insert(users)
-      .values({
-        id: session.userId,
-        email,
-        name,
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email,
-          name,
-          updatedAt: new Date(),
-        },
-      });
+    const before = await getUserById(session.userId);
+    await ensureAppUserLinked({
+      authUserId: session.userId,
+      email,
+      name,
+    });
 
     return {
       success: true,
       userId: session.userId,
-      created: !alreadyExists,
+      created: !before,
     };
   } catch (error: any) {
-    console.error("syncClerkUserAction error:", error);
-    // One more attempt after freeing email (race / unique violation)
-    try {
-      if (!isDbConfigured || !db) throw error;
-      const session = await auth();
-      const clerkUser = session.userId ? await currentUser() : null;
-      if (!session.userId || !clerkUser) throw error;
-
-      const email =
-        clerkUser.primaryEmailAddress?.emailAddress ||
-        clerkUser.emailAddresses?.[0]?.emailAddress ||
-        `${session.userId}@users.clerk.roleready.local`;
-      const name =
-        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-        clerkUser.username ||
-        "User";
-
-      await freeEmailForClerkUser(session.userId, email);
-      await db
-        .insert(users)
-        .values({ id: session.userId, email, name })
-        .onConflictDoUpdate({
-          target: users.id,
-          set: { email, name, updatedAt: new Date() },
-        });
-
-      return { success: true, userId: session.userId, created: false };
-    } catch (retryError: any) {
-      console.error("syncClerkUserAction retry failed:", retryError);
+    console.error("syncAppwriteUserAction error:", error);
+    const msg = String(error?.message || error || "Failed to sync user");
+    if (
+      msg.includes("documents.write") ||
+      msg.includes("documents.read") ||
+      msg.includes("documentsdb") ||
+      msg.includes("missing scopes")
+    ) {
       return {
         success: false,
-        error: retryError?.message || error?.message || "Failed to sync user",
+        error:
+          "Appwrite API key scopes issue. For this project use rows.read + rows.write (TablesDB). Click Update on the key, then restart npm run dev.",
       };
     }
+    return { success: false, error: msg };
   }
 }
 
 export async function saveUserOnboardingAction({
-  userId,
-  email,
   name,
   targetJobTitle,
   industry,
 }: {
-  userId: string;
-  email: string;
+  /** @deprecated Ignored — Auth session id is used when DB is configured. */
+  userId?: string;
+  /** @deprecated Ignored — Appwrite Auth email is used when DB is configured. */
+  email?: string;
   name: string;
   targetJobTitle: string;
   industry: string;
 }) {
   try {
-    let ownerId = userId;
-    let ownerEmail = email;
-    let ownerName = name;
+    const trimmedName = String(name || "").trim().slice(0, 255) || "User";
+    const trimmedTitle = String(targetJobTitle || "").trim().slice(0, 255);
+    const trimmedIndustry = String(industry || "").trim().slice(0, 255);
 
-    try {
-      const session = await auth();
-      const clerkUser = session.userId ? await currentUser() : null;
-      if (session.userId) {
-        ownerId = session.userId;
-      }
-      if (clerkUser) {
-        ownerEmail =
-          clerkUser.primaryEmailAddress?.emailAddress ||
-          clerkUser.emailAddresses?.[0]?.emailAddress ||
-          ownerEmail;
-        ownerName =
-          [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
-          name ||
-          ownerName;
-      }
-    } catch {
-      // Demo mode without Clerk
+    // Demo / no-DB: allow local onboarding without a session
+    if (!isDbConfigured()) {
+      return { success: true, userId: "user_demo" };
     }
 
-    // Always sync identity first when possible
-    if (ownerId && ownerId !== "user_demo") {
-      await syncClerkUserAction();
+    const session = await auth();
+    if (!session.userId) {
+      return { success: false, error: "Sign in required" };
     }
 
-    if (isDbConfigured && db) {
-      await db
-        .insert(users)
-        .values({
-          id: ownerId,
-          email: ownerEmail,
-          name: ownerName,
-          targetJobTitle,
-          industry,
-        })
-        .onConflictDoUpdate({
-          target: users.id,
-          set: {
-            email: ownerEmail,
-            name: ownerName,
-            targetJobTitle,
-            industry,
-            updatedAt: new Date(),
-          },
-        });
+    const appUser = await currentUser();
+    if (!appUser) {
+      return { success: false, error: "Appwrite Auth user not found" };
     }
+
+    // Always bind identity from the verified session — never from client-supplied email/id
+    const ownerId = session.userId;
+    const ownerEmail = (appUser.email || `${ownerId}@users.appwrite.roleready.local`)
+      .trim()
+      .toLowerCase();
+    const ownerName = trimmedName || appUser.name || "User";
+
+    await ensureAppUserLinked({
+      authUserId: ownerId,
+      email: ownerEmail,
+      name: ownerName,
+    });
+    await upsertUser(ownerId, {
+      email: ownerEmail,
+      name: ownerName,
+      targetJobTitle: trimmedTitle || null,
+      industry: trimmedIndustry || null,
+    });
+
     return { success: true, userId: ownerId };
   } catch (error: any) {
     console.error("Save User Onboarding Error:", error);
@@ -226,16 +140,16 @@ export type UserProfile = {
   name: string;
   targetJobTitle: string;
   industry: string;
+  role: string;
 };
 
-/** Load signed-in user's basic profile (no role / AI fields). */
 export async function getMyProfileAction(): Promise<{
   success: boolean;
   profile?: UserProfile;
   error?: string;
 }> {
   try {
-    if (!isDbConfigured || !db) {
+    if (!isDbConfigured()) {
       return { success: false, error: "Database not configured" };
     }
 
@@ -244,32 +158,41 @@ export async function getMyProfileAction(): Promise<{
       return { success: false, error: "Sign in required" };
     }
 
-    await syncClerkUserAction();
+    const appUser = await currentUser();
+    const email = (appUser?.email || "").trim().toLowerCase();
+    const name = appUser?.name || "";
 
-    const [row] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        targetJobTitle: users.targetJobTitle,
-        industry: users.industry,
-      })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
+    const sync = await syncAppwriteUserAction();
+    if (!sync.success) {
+      return { success: false, error: sync.error || "Could not sync profile" };
+    }
+
+    let row = await getUserById(session.userId);
+    if (!row && email) {
+      row = await ensureAppUserLinked({
+        authUserId: session.userId,
+        email,
+        name,
+      });
+    }
 
     if (!row) {
-      return { success: false, error: "Profile not found" };
+      return {
+        success: false,
+        error:
+          "Profile could not be created in Appwrite. Check API key scopes (documents.read/write) and that the users collection attributes match.",
+      };
     }
 
     return {
       success: true,
       profile: {
         id: row.id,
-        email: row.email,
-        name: row.name || "",
+        email: row.email || email,
+        name: row.name || name || "",
         targetJobTitle: row.targetJobTitle || "",
         industry: row.industry || "",
+        role: row.role || "user",
       },
     };
   } catch (error: any) {
@@ -278,17 +201,13 @@ export async function getMyProfileAction(): Promise<{
   }
 }
 
-/**
- * Update basic profile only: name, target job title, industry.
- * Does not accept or change role, AI flags, or limits.
- */
 export async function updateMyProfileAction(input: {
   name: string;
   targetJobTitle: string;
   industry: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!isDbConfigured || !db) {
+    if (!isDbConfigured()) {
       return { success: false, error: "Database not configured" };
     }
 
@@ -296,6 +215,13 @@ export async function updateMyProfileAction(input: {
     if (!session.userId) {
       return { success: false, error: "Sign in required" };
     }
+
+    const appUser = await currentUser();
+    await ensureAppUserLinked({
+      authUserId: session.userId,
+      email: appUser?.email || `${session.userId}@users.appwrite.roleready.local`,
+      name: appUser?.name || input.name,
+    });
 
     const name = String(input.name || "").trim().slice(0, 255);
     const targetJobTitle = String(input.targetJobTitle || "").trim().slice(0, 255);
@@ -305,15 +231,11 @@ export async function updateMyProfileAction(input: {
       return { success: false, error: "Name is required" };
     }
 
-    await db
-      .update(users)
-      .set({
-        name,
-        targetJobTitle: targetJobTitle || null,
-        industry: industry || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, session.userId));
+    await updateUser(session.userId, {
+      name,
+      targetJobTitle: targetJobTitle || null,
+      industry: industry || null,
+    });
 
     return { success: true };
   } catch (error: any) {

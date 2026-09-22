@@ -1,10 +1,41 @@
-import { streamText } from "ai";
 import { checkRateLimit } from "@/lib/ai/rate-limiter";
 import { SYSTEM_PROMPTS } from "@/lib/ai/prompts";
-import { getAiModel } from "@/lib/ai/provider";
 import { consumeAiAccess } from "@/lib/ai/access";
+import { streamModelOrMock } from "@/lib/ai/stream-response";
 
 export const runtime = "nodejs";
+
+function normalizeKeywords(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((k): k is string => typeof k === "string")
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function buildFallbackSummary(title: string, keywords: string[]): string {
+  const focus = keywords
+    .filter((k) => /focused|AI|ML|DevOps|Full-stack|Leadership|Product|cloud|fintech/i.test(k))
+    .slice(0, 2);
+  const focusClause =
+    focus.length > 0
+      ? ` with emphasis on ${focus.join(" and ").replace(/ focused/gi, "")}`
+      : "";
+
+  const concise = keywords.some((k) => /concise/i.test(k));
+  const detail = keywords.some((k) => /detail/i.test(k));
+
+  if (concise) {
+    return `Results-driven ${title}${focusClause}. Delivers scalable products, strong engineering craft, and measurable business impact.`;
+  }
+
+  if (detail) {
+    return `Results-oriented ${title}${focusClause} with a proven track record of designing, building, and scaling resilient digital solutions end-to-end. Expert at bridging complex product requirements with high-performance architectures, mentoring teams, accelerating delivery velocity, and shipping features that create measurable revenue and reliability outcomes across enterprise and growth environments.`;
+  }
+
+  return `Results-oriented ${title}${focusClause} with a proven track record of designing, building, and scaling resilient digital solutions. Expert at bridging complex product requirements with high-performance architectures, accelerating team velocity, and delivering measurable business impact across enterprise and growth environments.`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -21,47 +52,26 @@ export async function POST(req: Request) {
       });
     }
 
-    const { jobTitle, experiences, skills } = await req.json();
+    const { jobTitle, experiences, skills, keywords: rawKeywords } = await req.json();
+    const title = jobTitle || "Software Engineer";
+    const keywords = normalizeKeywords(rawKeywords);
+
+    const steerBlock =
+      keywords.length > 0
+        ? `\nSteer instructions (apply all that apply):\n${keywords.map((k) => `- ${k}`).join("\n")}\n`
+        : "";
 
     const prompt = `Target Job Title: ${jobTitle || "Professional"}
 Skills: ${Array.isArray(skills) ? skills.join(", ") : "Various professional skills"}
 Experience Overview:
 ${Array.isArray(experiences) ? experiences.map((e: any) => `- ${e.jobTitle} at ${e.company}: ${e.bullets?.join("; ") || ""}`).join("\n") : "Experienced professional background"}
+${steerBlock}
+Generate a high-impact, professional executive summary${keywords.length ? " that follows the steer instructions above" : ""}.`;
 
-Generate a high-impact, professional executive summary.`;
-
-    const model = getAiModel();
-    if (model) {
-      const result = streamText({
-        model,
-        system: SYSTEM_PROMPTS.summaryGenerator,
-        prompt,
-      });
-      return result.toDataStreamResponse();
-    }
-
-    // High quality mock stream fallback
-    const title = jobTitle || "Software Engineer";
-    const fallbackSummary = `Results-oriented ${title} with a proven track record of designing, building, and scaling resilient digital solutions. Expert at bridging complex product requirements with high-performance architectures, accelerating team velocity, and delivering measurable business impact across enterprise and growth environments.`;
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const words = fallbackSummary.split(" ");
-        for (let i = 0; i < words.length; i++) {
-          const word = words[i] + (i < words.length - 1 ? " " : "");
-          controller.enqueue(encoder.encode(`0:${JSON.stringify(word)}\n`));
-          await new Promise((resolve) => setTimeout(resolve, 30));
-        }
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "X-Vercel-AI-Data-Stream": "v1",
-      },
+    return streamModelOrMock({
+      system: SYSTEM_PROMPTS.summaryGenerator,
+      prompt,
+      fallbackText: buildFallbackSummary(title, keywords),
     });
   } catch (error) {
     console.error("Summary Generator Error:", error);

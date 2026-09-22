@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/appwrite/auth";
 
 export type DownloadAuthResult = {
   allowed: boolean;
@@ -16,7 +16,7 @@ export async function requireSignedInForDownload(): Promise<DownloadAuthResult> 
       return { allowed: true, authenticated: true };
     }
   } catch {
-    // Clerk unavailable
+    // Auth unavailable
   }
 
   return {

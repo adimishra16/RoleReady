@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import { eq } from "drizzle-orm";
-import { db, isDbConfigured } from "@/db";
-import { billingEvents, users } from "@/db/schema";
+import {
+  getUserByRazorpaySubscriptionId,
+  insertBillingEvent,
+  isDbConfigured,
+} from "@/lib/appwrite/db";
 import {
   activateUserSubscription,
   downgradeToFree,
@@ -38,12 +40,8 @@ async function findUserIdFromSubscription(sub: Record<string, any>): Promise<str
   const fromNotes = sub?.notes?.userId;
   if (typeof fromNotes === "string" && fromNotes) return fromNotes;
 
-  if (!db || !sub?.id) return null;
-  const [row] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.razorpaySubscriptionId, sub.id))
-    .limit(1);
+  if (!sub?.id) return null;
+  const row = await getUserByRazorpaySubscriptionId(sub.id);
   return row?.id || null;
 }
 
@@ -58,7 +56,7 @@ export async function POST(req: Request) {
       });
     }
 
-    if (!isDbConfigured || !db) {
+    if (!isDbConfigured()) {
       return new Response(JSON.stringify({ error: "Database not configured" }), {
         status: 503,
         headers: { "Content-Type": "application/json" },
@@ -83,7 +81,7 @@ export async function POST(req: Request) {
     const eventType = event.event || "unknown";
     const payload = event.payload || {};
 
-    await db.insert(billingEvents).values({
+    await insertBillingEvent({
       eventType,
       razorpayEventId: event.id || null,
       payload,
@@ -94,10 +92,7 @@ export async function POST(req: Request) {
       payload.subscription?.entity || payload.subscription || null;
     const paymentEntity = payload.payment?.entity || payload.payment || null;
 
-    if (
-      eventType === "subscription.activated" ||
-      eventType === "subscription.charged"
-    ) {
+    if (eventType === "subscription.activated" || eventType === "subscription.charged") {
       const sub = subscriptionEntity;
       if (sub) {
         const userId = await findUserIdFromSubscription(sub);
@@ -137,7 +132,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // First auth payment sometimes arrives as payment.captured with subscription notes
     if (eventType === "payment.captured" && paymentEntity?.notes?.userId) {
       const planId = resolvePlanId(paymentEntity.notes);
       const userId = String(paymentEntity.notes.userId);

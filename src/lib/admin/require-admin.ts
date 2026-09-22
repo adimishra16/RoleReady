@@ -1,9 +1,11 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { db, isDbConfigured } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth, currentUser } from "@/lib/appwrite/auth";
+import {
+  ensureAppUserLinked,
+  getUserById,
+  isDbConfigured,
+} from "@/lib/appwrite/db";
 
 export type AppRole = "user" | "admin";
 
@@ -12,10 +14,11 @@ export type AdminGate =
   | { ok: false; error: string };
 
 /**
- * Server-only admin check. Role is read from Neon — never from the client.
+ * Server-only admin check. Role is read from the Auth-id `users` row only —
+ * never from client input or email-matched legacy rows.
  */
 export async function requireAdmin(): Promise<AdminGate> {
-  if (!isDbConfigured || !db) {
+  if (!isDbConfigured()) {
     return { ok: false, error: "Database not configured" };
   }
 
@@ -31,15 +34,21 @@ export async function requireAdmin(): Promise<AdminGate> {
     return { ok: false, error: "Sign in required" };
   }
 
-  const [row] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      role: users.role,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const appUser = await currentUser();
+  const email = appUser?.email || "";
+
+  try {
+    await ensureAppUserLinked({
+      authUserId: userId,
+      email: email || `${userId}@users.appwrite.roleready.local`,
+      name: appUser?.name || null,
+    });
+  } catch (e) {
+    console.error("requireAdmin ensureAppUserLinked:", e);
+  }
+
+  // Authorize only the document keyed by the signed-in Auth user id
+  const row = await getUserById(userId);
 
   if (!row) {
     return { ok: false, error: "User not found in database" };
@@ -51,8 +60,8 @@ export async function requireAdmin(): Promise<AdminGate> {
 
   return {
     ok: true,
-    userId: row.id,
-    email: row.email,
+    userId,
+    email: row.email || email,
     role: "admin",
   };
 }
@@ -62,7 +71,7 @@ export async function getMyRoleAction(): Promise<{
   isAdmin: boolean;
   authenticated: boolean;
 }> {
-  if (!isDbConfigured || !db) {
+  if (!isDbConfigured()) {
     return { role: null, isAdmin: false, authenticated: false };
   }
 
@@ -72,12 +81,18 @@ export async function getMyRoleAction(): Promise<{
       return { role: null, isAdmin: false, authenticated: false };
     }
 
-    const [row] = await db
-      .select({ role: users.role })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
+    const appUser = await currentUser();
+    try {
+      await ensureAppUserLinked({
+        authUserId: session.userId,
+        email: appUser?.email || `${session.userId}@users.appwrite.roleready.local`,
+        name: appUser?.name || null,
+      });
+    } catch {
+      // fall through
+    }
 
+    const row = await getUserById(session.userId);
     const role = (row?.role === "admin" ? "admin" : row ? "user" : null) as AppRole | null;
     return {
       role,

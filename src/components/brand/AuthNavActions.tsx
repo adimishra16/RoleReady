@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth, useClerk, useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LogOut, LogIn } from "lucide-react";
 import { AdminNavLink } from "@/components/brand/AdminNavLink";
+import { useAuth } from "@/components/shared/AuthProvider";
+import { isAppwriteConfigured } from "@/lib/appwrite/config";
 
+export function isAuthConfigured() {
+  return isAppwriteConfigured();
+}
+
+/** @deprecated use isAuthConfigured */
 export function isClerkConfigured() {
-  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  return Boolean(key && !key.includes("placeholder"));
+  return isAppwriteConfigured();
 }
 
 export function AuthNavActions({
@@ -21,10 +27,9 @@ export function AuthNavActions({
   primaryHref?: string;
   primaryLabel?: string;
   showDashboardLink?: boolean;
-  /** Tighter layout for builder header */
   compact?: boolean;
 }) {
-  if (!isClerkConfigured()) {
+  if (!isAppwriteConfigured()) {
     return (
       <div className={`flex items-center ${compact ? "gap-1.5" : "gap-2"}`}>
         <ThemeToggle />
@@ -46,7 +51,7 @@ export function AuthNavActions({
   }
 
   return (
-    <ClerkAuthNav
+    <AppwriteAuthNav
       primaryHref={primaryHref}
       primaryLabel={primaryLabel}
       showDashboardLink={showDashboardLink}
@@ -55,7 +60,7 @@ export function AuthNavActions({
   );
 }
 
-function ClerkAuthNav({
+function AppwriteAuthNav({
   primaryHref,
   primaryLabel,
   showDashboardLink,
@@ -66,22 +71,16 @@ function ClerkAuthNav({
   showDashboardLink: boolean;
   compact: boolean;
 }) {
-  const { isSignedIn, isLoaded } = useAuth();
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { isSignedIn, isLoaded, user, signOut } = useAuth();
+  const router = useRouter();
 
-  const displayName =
-    user?.fullName ||
-    user?.firstName ||
-    user?.username ||
-    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
-    "Account";
-
-  const email = user?.primaryEmailAddress?.emailAddress || "";
-  const imageUrl = user?.imageUrl;
+  const displayName = user?.name || user?.email?.split("@")[0] || "Account";
+  const email = user?.email || "";
 
   const handleLogout = async () => {
-    await signOut({ redirectUrl: "/" });
+    await signOut();
+    router.push("/");
+    router.refresh();
   };
 
   return (
@@ -110,18 +109,9 @@ function ClerkAuthNav({
             }`}
             title="Edit profile"
           >
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl}
-                alt=""
-                className="h-7 w-7 shrink-0 rounded-full object-cover border border-teal-700/20"
-              />
-            ) : (
-              <div className="h-7 w-7 shrink-0 rounded-full bg-teal-700 text-white text-[11px] font-bold flex items-center justify-center">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <div className="h-7 w-7 shrink-0 rounded-full bg-teal-700 text-white text-[11px] font-bold flex items-center justify-center">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
             <div className="min-w-0 leading-tight hidden sm:block">
               <p className="text-[11px] font-semibold text-foreground truncate">{displayName}</p>
               {email && (
@@ -166,7 +156,6 @@ function ClerkAuthNav({
   );
 }
 
-/** Must only render under ClerkProvider. */
 export function ClerkSignedInGate({
   children,
   fallback,
@@ -174,13 +163,23 @@ export function ClerkSignedInGate({
   children: (ctx: { isSignedIn: boolean; isLoaded: boolean }) => React.ReactNode;
   fallback?: React.ReactNode;
 }) {
-  if (!isClerkConfigured()) {
-    return <>{fallback ?? children({ isSignedIn: false, isLoaded: true })}</>;
-  }
-  return <ClerkSignedInGateInner>{children}</ClerkSignedInGateInner>;
+  return <SignedInGate fallback={fallback}>{children}</SignedInGate>;
 }
 
-function ClerkSignedInGateInner({
+export function SignedInGate({
+  children,
+  fallback,
+}: {
+  children: (ctx: { isSignedIn: boolean; isLoaded: boolean }) => React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  if (!isAppwriteConfigured()) {
+    return <>{fallback ?? children({ isSignedIn: false, isLoaded: true })}</>;
+  }
+  return <SignedInGateInner>{children}</SignedInGateInner>;
+}
+
+function SignedInGateInner({
   children,
 }: {
   children: (ctx: { isSignedIn: boolean; isLoaded: boolean }) => React.ReactNode;

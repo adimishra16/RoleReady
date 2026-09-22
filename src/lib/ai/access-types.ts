@@ -4,6 +4,8 @@ export type AiAccessStatus = {
   enabled: boolean;
   globallyEnabled: boolean;
   authenticated: boolean;
+  /** True when Appwrite users.role === "admin" — full AI unlock, no token spend. */
+  isAdmin: boolean;
   userId: string | null;
   reason?:
     | "db_missing"

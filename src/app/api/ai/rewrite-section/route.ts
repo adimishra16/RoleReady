@@ -1,8 +1,7 @@
-import { streamText } from "ai";
 import { checkRateLimit } from "@/lib/ai/rate-limiter";
 import { SYSTEM_PROMPTS } from "@/lib/ai/prompts";
-import { getAiModel } from "@/lib/ai/provider";
 import { consumeAiAccess } from "@/lib/ai/access";
+import { streamModelOrMock } from "@/lib/ai/stream-response";
 
 export const runtime = "nodejs";
 
@@ -65,16 +64,6 @@ Steer hint: ${context || "N/A"}
 
 Rewrite into 3 improved variations for this resume section.`;
 
-    const model = getAiModel();
-    if (model) {
-      const result = streamText({
-        model,
-        system: SYSTEM_PROMPTS.sectionRewriter,
-        prompt,
-      });
-      return result.toDataStreamResponse();
-    }
-
     const hint = context ? ` (${context})` : "";
     const fallback = [
       `1. High-Impact & Quantified: ${text}${hint} — framed with clear outcomes and measurable impact.`,
@@ -82,24 +71,10 @@ Rewrite into 3 improved variations for this resume section.`;
       `\n\n3. Leadership & Ownership: Led and delivered on: ${text}${hint}.`,
     ].join("");
 
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const words = fallback.split(" ");
-        for (let i = 0; i < words.length; i++) {
-          const word = words[i] + (i < words.length - 1 ? " " : "");
-          controller.enqueue(encoder.encode(`0:${JSON.stringify(word)}\n`));
-          await new Promise((resolve) => setTimeout(resolve, 25));
-        }
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "X-Vercel-AI-Data-Stream": "v1",
-      },
+    return streamModelOrMock({
+      system: SYSTEM_PROMPTS.sectionRewriter,
+      prompt,
+      fallbackText: fallback,
     });
   } catch (error) {
     console.error("AI Section Rewriter Error:", error);

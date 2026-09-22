@@ -5,7 +5,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { AuthNavActions, isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { AuthNavActions, isAuthConfigured } from "@/components/brand/AuthNavActions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PLAN_LIST, type PlanId } from "@/lib/billing/plans";
@@ -54,7 +54,7 @@ export default function PricingPage() {
   }, [refreshBilling]);
 
   const startCheckout = (planId: PlanId) => {
-    if (!isClerkConfigured()) {
+    if (!isAuthConfigured()) {
       setError("Sign in is required before checkout.");
       return;
     }

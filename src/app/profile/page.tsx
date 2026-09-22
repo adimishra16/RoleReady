@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { AuthNavActions, isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { AuthNavActions, isAuthConfigured } from "@/components/brand/AuthNavActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
   resolveIndustrySelection,
 } from "@/lib/profile/industries";
 import { ArrowLeft, Check, Loader2, UserRound } from "lucide-react";
+import { AiUsagePanel } from "@/components/ai/AiUsagePanel";
 
 export default function ProfilePage() {
   const [pending, startTransition] = useTransition();
@@ -45,7 +46,7 @@ export default function ProfilePage() {
     setLoading(true);
     setError(null);
 
-    if (!isClerkConfigured()) {
+    if (!isAuthConfigured()) {
       setNeedsAuth(true);
       setLoading(false);
       return;
@@ -157,6 +158,8 @@ export default function ProfilePage() {
             {error}
           </div>
         )}
+
+        <AiUsagePanel />
 
         <section className="rounded-2xl border bg-card p-5 sm:p-6 space-y-5 shadow-xs">
           <div>

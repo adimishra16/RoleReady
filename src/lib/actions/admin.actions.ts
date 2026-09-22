@@ -1,8 +1,13 @@
 "use server";
 
-import { db, isDbConfigured } from "@/db";
-import { appSettings, users } from "@/db/schema";
-import { asc, eq, sql } from "drizzle-orm";
+import {
+  getAppSetting,
+  getUserById,
+  isDbConfigured,
+  listUsers,
+  setAppSetting,
+  updateUser,
+} from "@/lib/appwrite/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import {
@@ -35,63 +40,41 @@ export async function listAdminUsersAction(): Promise<{
   if (!gate.ok) {
     return { success: false, error: gate.error };
   }
-  if (!db) {
+  if (!isDbConfigured()) {
     return { success: false, error: "Database not configured" };
   }
 
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      plan: users.plan,
-      subscriptionStatus: users.subscriptionStatus,
-      aiEnabled: users.aiEnabled,
-      aiRewriteLimit: users.aiRewriteLimit,
-      aiRewriteUsed: users.aiRewriteUsed,
-      aiOtherLimit: users.aiOtherLimit,
-      aiOtherUsed: users.aiOtherUsed,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .orderBy(asc(users.email));
-
-  const [globalRow] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.key, "ai_globally_enabled"))
-    .limit(1);
-
-  const globallyEnabled =
-    globalRow?.value === "true" || globalRow?.value === "1";
+  const rows = await listUsers();
+  const globalValue = await getAppSetting("ai_globally_enabled");
+  const globallyEnabled = globalValue === "true" || globalValue === "1";
 
   return {
     success: true,
     globallyEnabled,
     users: rows.map((r) => ({
-      ...r,
+      id: r.id,
+      email: r.email,
       name: r.name,
       role: r.role || "user",
       plan: r.plan || "free",
       subscriptionStatus: r.subscriptionStatus || "none",
+      aiEnabled: r.aiEnabled,
+      aiRewriteLimit: r.aiRewriteLimit,
+      aiRewriteUsed: r.aiRewriteUsed,
+      aiOtherLimit: r.aiOtherLimit,
+      aiOtherUsed: r.aiOtherUsed,
       createdAt: r.createdAt?.toISOString?.() ?? String(r.createdAt),
     })),
   };
 }
 
-/**
- * Admin grant / revoke paid plans without Razorpay.
- * starter | pro → activates AI entitlements for that plan.
- * free → downgrades and turns AI off.
- */
 export async function grantUserSubscriptionAction(input: {
   userId: string;
   plan: "free" | "starter" | "pro";
 }): Promise<{ success: boolean; error?: string }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { success: false, error: gate.error };
-  if (!db) return { success: false, error: "Database not configured" };
+  if (!isDbConfigured()) return { success: false, error: "Database not configured" };
 
   const userId = String(input.userId || "").trim();
   if (!userId) return { success: false, error: "userId required" };
@@ -115,24 +98,11 @@ export async function setGlobalAiEnabledAction(
 ): Promise<{ success: boolean; error?: string }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { success: false, error: gate.error };
-  if (!isDbConfigured || !db) {
+  if (!isDbConfigured()) {
     return { success: false, error: "Database not configured" };
   }
 
-  await db
-    .insert(appSettings)
-    .values({
-      key: "ai_globally_enabled",
-      value: enabled ? "true" : "false",
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: appSettings.key,
-      set: {
-        value: enabled ? "true" : "false",
-        updatedAt: new Date(),
-      },
-    });
+  await setAppSetting("ai_globally_enabled", enabled ? "true" : "false");
 
   revalidatePath("/admin");
   return { success: true };
@@ -140,7 +110,7 @@ export async function setGlobalAiEnabledAction(
 
 /**
  * Update AI permissions / token limits for a user.
- * Intentionally does NOT accept or update `role` — promote admins only in Neon SQL.
+ * Does NOT accept or update `role` — promote admins only in Appwrite Console.
  */
 export async function updateUserAiPermissionsAction(input: {
   userId: string;
@@ -152,30 +122,21 @@ export async function updateUserAiPermissionsAction(input: {
 }): Promise<{ success: boolean; error?: string }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { success: false, error: gate.error };
-  if (!db) return { success: false, error: "Database not configured" };
+  if (!isDbConfigured()) return { success: false, error: "Database not configured" };
 
   const userId = String(input.userId || "").trim();
   if (!userId) return { success: false, error: "userId required" };
 
-  const patch: Partial<{
-    aiEnabled: boolean;
-    aiRewriteLimit: number;
-    aiOtherLimit: number;
-    aiRewriteUsed: number;
-    aiOtherUsed: number;
-    updatedAt: Date;
-  }> = {
-    updatedAt: new Date(),
-  };
+  const patch: Parameters<typeof updateUser>[1] = {};
 
   if (typeof input.aiEnabled === "boolean") {
     patch.aiEnabled = input.aiEnabled;
   }
   if (typeof input.aiRewriteLimit === "number" && Number.isFinite(input.aiRewriteLimit)) {
-    patch.aiRewriteLimit = Math.max(0, Math.min(10_000, Math.floor(input.aiRewriteLimit)));
+    patch.aiRewriteLimit = Math.max(0, Math.min(500_000, Math.floor(input.aiRewriteLimit)));
   }
   if (typeof input.aiOtherLimit === "number" && Number.isFinite(input.aiOtherLimit)) {
-    patch.aiOtherLimit = Math.max(0, Math.min(10_000, Math.floor(input.aiOtherLimit)));
+    patch.aiOtherLimit = Math.max(0, Math.min(500_000, Math.floor(input.aiOtherLimit)));
   }
   if (input.resetRewriteUsed) {
     patch.aiRewriteUsed = 0;
@@ -184,7 +145,7 @@ export async function updateUserAiPermissionsAction(input: {
     patch.aiOtherUsed = 0;
   }
 
-  await db.update(users).set(patch).where(eq(users.id, userId));
+  await updateUser(userId, patch);
   revalidatePath("/admin");
   return { success: true };
 }
@@ -196,29 +157,24 @@ export async function bumpUserAiUsageAction(input: {
 }): Promise<{ success: boolean; error?: string }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { success: false, error: gate.error };
-  if (!db) return { success: false, error: "Database not configured" };
+  if (!isDbConfigured()) return { success: false, error: "Database not configured" };
 
   const delta = Math.floor(input.delta);
   if (!input.userId || !Number.isFinite(delta)) {
     return { success: false, error: "Invalid input" };
   }
 
+  const user = await getUserById(input.userId);
+  if (!user) return { success: false, error: "User not found" };
+
   if (input.bucket === "rewrite") {
-    await db
-      .update(users)
-      .set({
-        aiRewriteUsed: sql`GREATEST(0, ${users.aiRewriteUsed} + ${delta})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, input.userId));
+    await updateUser(input.userId, {
+      aiRewriteUsed: Math.max(0, user.aiRewriteUsed + delta),
+    });
   } else {
-    await db
-      .update(users)
-      .set({
-        aiOtherUsed: sql`GREATEST(0, ${users.aiOtherUsed} + ${delta})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, input.userId));
+    await updateUser(input.userId, {
+      aiOtherUsed: Math.max(0, user.aiOtherUsed + delta),
+    });
   }
 
   revalidatePath("/admin");

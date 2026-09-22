@@ -11,6 +11,10 @@ export async function GET() {
     return Response.json(
       {
         enabled: false,
+        isAdmin: false,
+        authenticated: false,
+        globallyEnabled: false,
+        userId: null,
         reason: "db_missing",
         rewrite: { used: 0, limit: 0, remaining: 0 },
         other: { used: 0, limit: 0, remaining: 0 },

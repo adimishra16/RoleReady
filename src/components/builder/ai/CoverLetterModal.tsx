@@ -9,6 +9,7 @@ import { FileText, Copy, Check, Wand2, Loader2, Download, Lock } from "lucide-re
 import { ResumeData } from "@/lib/types/resume";
 import { appendAiDataStreamText, stripAiStreamArtifacts } from "@/lib/ai/parse-data-stream";
 import { aiLockMessage, readAiError, useAiAccess } from "@/lib/hooks/useAiAccess";
+import { AiCreditsStrip } from "@/components/ai/AiCreditsStrip";
 
 interface Props {
   isOpen: boolean;
@@ -62,8 +63,12 @@ export function CoverLetterModal({ isOpen, onClose, resumeData }: Props) {
         accumulated = appendAiDataStreamText(accumulated, chunk);
         setCoverLetter(stripAiStreamArtifacts(accumulated));
       }
+      if (!stripAiStreamArtifacts(accumulated).trim()) {
+        throw new Error("No cover letter was generated. Check NEBIUS_API_KEY and restart the server.");
+      }
       void refreshAiStatus();
     } catch (err: any) {
+      setCoverLetter("");
       setError(err.message || "Failed to generate cover letter.");
       void refreshAiStatus();
     } finally {
@@ -104,21 +109,7 @@ export function CoverLetterModal({ isOpen, onClose, resumeData }: Props) {
       </DialogHeader>
 
       <div className="space-y-4 my-2">
-        {aiStatus && (
-          <div className="flex items-center justify-between gap-2 text-[11px] rounded-lg border bg-muted/30 px-3 py-2">
-            <span className="text-muted-foreground">
-              AI credits left:{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {aiStatus.other.remaining}/{aiStatus.other.limit}
-              </span>
-            </span>
-            {aiLocked && (
-              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <Lock className="h-3 w-3" /> Locked
-              </span>
-            )}
-          </div>
-        )}
+        {aiStatus && <AiCreditsStrip status={aiStatus} bucket="other" locked={aiLocked} />}
         {lockMessage && (
           <div className="p-3 text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200">
             {lockMessage}

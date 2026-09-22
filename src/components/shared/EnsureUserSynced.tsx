@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { isClerkConfigured } from "@/components/brand/AuthNavActions";
+import { useAuth } from "@/components/shared/AuthProvider";
+import { isAppwriteConfigured } from "@/lib/appwrite/config";
 
 /**
- * Whenever a Clerk session is active, push the user into Neon.
- * Retries until success — login must land in the database.
+ * Whenever an Appwrite session is active, upsert the user into Appwrite DB `users`.
  */
 export function EnsureUserSynced() {
-  if (!isClerkConfigured()) return null;
+  if (!isAppwriteConfigured()) return null;
   return <EnsureUserSyncedInner />;
 }
 
@@ -22,7 +21,6 @@ function EnsureUserSyncedInner() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Cleared on logout so the next login always syncs again
     if (!isSignedIn || !userId) {
       lastSuccessFor.current = null;
       attempt.current = 0;
@@ -61,7 +59,7 @@ function EnsureUserSyncedInner() {
         lastSuccessFor.current = userId;
         attempt.current = 0;
         if (data.created) {
-          console.info("[RoleReady] Synced new Clerk user into Neon:", data.userId);
+          console.info("[RoleReady] Synced Appwrite user into DB:", data.userId);
         }
         return true;
       }
@@ -92,14 +90,12 @@ function EnsureUserSyncedInner() {
           void runWithRetry();
         }, delay);
       } finally {
-        // Only clear if we are not waiting on a scheduled retry
         if (![...timers].length) {
           inFlight.current = false;
         }
       }
     };
 
-    // Short delay so Clerk cookies settle after redirect / hard refresh
     schedule(() => {
       void runWithRetry();
     }, 200);
@@ -112,7 +108,6 @@ function EnsureUserSyncedInner() {
     };
   }, [isLoaded, isSignedIn, userId]);
 
-  // Re-sync when tab becomes visible if earlier attempts never succeeded
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return;
 
@@ -130,9 +125,7 @@ function EnsureUserSyncedInner() {
           const data = (await res.json()) as { success?: boolean };
           if (data.success) lastSuccessFor.current = userId;
         })
-        .catch(() => {
-          /* main effect owns backoff */
-        });
+        .catch(() => {});
     };
 
     document.addEventListener("visibilitychange", onVisible);

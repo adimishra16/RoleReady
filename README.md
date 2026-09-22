@@ -15,8 +15,7 @@ AI resume builder — ATS-friendly templates, STAR bullet rewrites, job matching
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white)
-![Neon](https://img.shields.io/badge/Neon-PostgreSQL-00E599?style=flat-square)
-![Clerk](https://img.shields.io/badge/Clerk-Auth-6C47FF?style=flat-square)
+![Appwrite](https://img.shields.io/badge/Appwrite-Auth%20%2B%20DB-FD366E?style=flat-square)
 ![License](https://img.shields.io/badge/License-Private-lightgrey?style=flat-square)
 
 </div>
@@ -33,7 +32,7 @@ Walk into every application prepared. RoleReady helps you rewrite weak bullets i
 | **Live Builder** | Split editor + preview, section reorder, theme & fonts, autosave |
 | **4 Templates** | Modern, Minimal ATS, Executive, Creative |
 | **Export & Share** | PDF after sign-in · public `/share/[slug]` link |
-| **Account limits** | Up to **3** resumes per user · AI quotas via Neon flags |
+| **Account limits** | Up to **3** resumes per user · AI quotas via Appwrite `users` |
 
 ---
 
@@ -100,10 +99,11 @@ Fill in `.env.local` (never commit it):
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_URL` | For cloud data | Neon connection string |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | For auth | Clerk publishable key |
-| `CLERK_SECRET_KEY` | For auth | Clerk secret key |
-| `CLERK_WEBHOOK_SECRET` | For webhook | **Required** if you use `/api/webhooks/clerk` (fail-closed without it) |
+| `NEXT_PUBLIC_APPWRITE_ENDPOINT` | For auth/DB | Appwrite API endpoint (e.g. `https://cloud.appwrite.io/v1`) |
+| `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | For auth/DB | Appwrite project id |
+| `APPWRITE_API_KEY` | For SSR auth + admin DB | Server API key (add when ready) |
+| `APPWRITE_DATABASE_ID` | For cloud data | Database id (default `roleready`) |
+| `APPWRITE_COLLECTION_*` | Optional | Override collection ids (see `.env.example`) |
 | `NEBIUS_API_KEY` | For AI | [Nebius Token Factory](https://tokenfactory.nebius.com/project/api-keys) |
 | `NEBIUS_MODEL` | Optional | Default: `deepseek-ai/DeepSeek-V4-Flash-0731` |
 | `NEXT_PUBLIC_APP_URL` | Yes | `http://localhost:3000` locally; production host on Vercel |
@@ -111,41 +111,22 @@ Fill in `.env.local` (never commit it):
 | `AI_OTHER_DEFAULT_LIMIT` | Optional | Default other AI quota (e.g. `10`) |
 | `OPENAI_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` | Optional | Fallbacks if Nebius unset |
 
-Clerk URL vars (already in `.env.example`):
+> **Demo mode:** Without Appwrite endpoint/project (or API key), the app still runs locally with demo resumes.
 
-```env
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/onboarding
-```
+### 3. Appwrite (Auth + Database)
 
-> **Demo mode:** Without `DATABASE_URL` / Clerk, the app still runs locally with demo resumes and simulated AI where configured.
+1. Create a project at [cloud.appwrite.io](https://cloud.appwrite.io) (or self-host)
+2. Add a **Web** platform with hostname `localhost`
+3. Enable **Email/Password** auth
+4. Create an API key with `users.read`, `users.write`, `sessions.write`, `databases.read`, `databases.write`
+5. Point `APPWRITE_DATABASE_ID` + collection ids at your migrated database
+6. Promote an admin by setting `role = "admin"` on that user’s document in the `users` collection
 
-### 3. Database
+### 4. Auth notes
 
-1. Create a project on [Neon](https://console.neon.tech)
-2. Paste the connection string into `DATABASE_URL`
-3. Push schema:
-
-```bash
-npx drizzle-kit push
-# or
-npm run db:generate
-npm run db:migrate
-```
-
-### 4. Clerk setup
-
-1. Create an app at [dashboard.clerk.com](https://dashboard.clerk.com)
-2. Copy API keys into `.env.local`
-3. Prefer **email only** — turn off Phone under User & authentication
-4. Optional webhook backup:
-   - Endpoint: `https://YOUR_HOST/api/webhooks/clerk`
-   - Events: `user.created`, `user.updated`, `user.deleted`
-   - Set `CLERK_WEBHOOK_SECRET` (endpoint rejects requests if missing)
-
-Users are also upserted into Neon on sign-in via `/api/users/sync`.
+- Sign-in / sign-up use Appwrite email+password via `/api/auth/*` (HTTP-only session cookie)
+- On login, the app upserts the Auth user into the Appwrite `users` collection (`/api/users/sync`)
+- Clerk webhooks are disabled (`/api/webhooks/clerk` returns 410)
 
 ### 5. Run
 
@@ -165,9 +146,6 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Production build |
 | `npm start` | Serve production build |
 | `npm run lint` | ESLint |
-| `npm run db:generate` | Generate Drizzle migrations |
-| `npm run db:migrate` | Apply migrations |
-| `npm run db:push` | Push schema to Neon |
 
 ---
 
@@ -182,31 +160,30 @@ src/
 │   ├── share/[slug]/           # Public resume
 │   ├── api/
 │   │   ├── ai/                 # rewrite, summary, match, cover, status
-│   │   ├── users/sync/         # Clerk → Neon upsert
-│   │   └── webhooks/clerk/     # Signed Clerk events
+│   │   ├── auth/               # Appwrite sign-in / sign-up / me / sign-out
+│   │   ├── users/sync/         # Appwrite Auth → users collection upsert
+│   │   └── webhooks/razorpay/  # Billing events
 │   └── page.tsx                # Landing
 ├── components/
 │   ├── brand/                  # Logo, auth nav
 │   ├── builder/                # Editors + AI modals
-│   ├── templates/              # Resume layouts
-│   ├── shared/                 # Theme, errors
-│   └── ui/
-├── db/                         # Drizzle schema + client
+│   ├── shared/                 # AuthProvider, theme, sync
+│   └── templates/              # Resume templates
 ├── lib/
-│   ├── actions/                # Resume & user server actions
-│   ├── ai/                     # Access control, prompts, rate limits
-│   ├── hooks/
-│   └── brand.ts
-└── middleware.ts               # clerkMiddleware
+│   ├── appwrite/               # Auth + Databases clients & repos
+│   ├── actions/                # Server actions
+│   └── ai/                     # Providers, access gates
+├── middleware.ts               # Protect /admin + /profile via session cookie
+└── ...
 ```
 
 ---
 
 ## Security notes
 
-- **Ownership** — save / delete / share actions require a Clerk session and verify the resume belongs to that user (no IDOR via resume id alone).
+- **Ownership** — save / delete / share actions require an Appwrite session and verify the resume belongs to that user.
 - **Create** — with the DB configured, client-supplied `userId` is ignored; ownership comes from the session.
-- **Webhook** — without `CLERK_WEBHOOK_SECRET`, `/api/webhooks/clerk` returns **503** and never accepts unsigned payloads.
+- **API key** — `APPWRITE_API_KEY` stays server-only; never expose it to the browser.
 
 ---
 
@@ -214,18 +191,17 @@ src/
 
 1. Import [adimishra16/RoleReady](https://github.com/adimishra16/RoleReady) into [Vercel](https://vercel.com)
 2. Set env vars (same as `.env.example`), especially:
-   - `DATABASE_URL`
-   - Clerk keys + `CLERK_WEBHOOK_SECRET` (if using webhooks)
+   - `NEXT_PUBLIC_APPWRITE_ENDPOINT` / `NEXT_PUBLIC_APPWRITE_PROJECT_ID`
+   - `APPWRITE_API_KEY` / `APPWRITE_DATABASE_ID`
    - `NEBIUS_API_KEY` (and optional model / AI limits)
    - `NEXT_PUBLIC_APP_URL=https://your-deployment.vercel.app`
 3. Deploy
-4. Point the Clerk webhook at `https://your-deployment.vercel.app/api/webhooks/clerk`
 
 ---
 
 ## Current status
 
-Suitable for **beta / testing**. Core builder UX works; cloud resume load/save is still evolving (localStorage remains the primary editor cache). Middleware does not yet hard-protect every dashboard/builder route — rely on action-level auth for mutations.
+Suitable for **beta / testing**. Core builder UX works; cloud resume load/save is still evolving (localStorage remains the primary editor cache). Middleware protects `/admin` and `/profile` — rely on action-level auth for mutations.
 
 ---
 

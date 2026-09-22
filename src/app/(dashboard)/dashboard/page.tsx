@@ -12,6 +12,7 @@ import { createResumeAction } from "@/lib/actions/resume.actions";
 import { VisualTemplateCardPicker } from "@/components/templates/VisualTemplateCardPicker";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { AuthNavActions } from "@/components/brand/AuthNavActions";
+import { AiUsagePanel } from "@/components/ai/AiUsagePanel";
 import { BRAND } from "@/lib/brand";
 import {
   Plus,
@@ -240,6 +241,8 @@ export default function DashboardPage() {
             {createError}
           </div>
         )}
+
+        <AiUsagePanel compact />
 
         {/* Resumes Grid Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

@@ -1,9 +1,7 @@
 "use server";
 
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
-import { db, isDbConfigured } from "@/db";
-import { users } from "@/db/schema";
+import { auth, currentUser } from "@/lib/appwrite/auth";
+import { getUserById, isDbConfigured, updateUser } from "@/lib/appwrite/db";
 import {
   BILLING_PLANS,
   getPlan,
@@ -11,7 +9,7 @@ import {
   type PlanId,
 } from "@/lib/billing/plans";
 import { getRazorpayClient, getRazorpayKeyId, isRazorpayConfigured } from "@/lib/billing/razorpay";
-import { syncClerkUserAction } from "@/lib/actions/user.actions";
+import { syncAppwriteUserAction } from "@/lib/actions/user.actions";
 
 export type SubscriptionCheckoutPayload = {
   keyId: string;
@@ -31,7 +29,7 @@ export async function getMyBillingStatusAction(): Promise<{
   error?: string;
 }> {
   const razorpayConfigured = isRazorpayConfigured();
-  if (!isDbConfigured || !db) {
+  if (!isDbConfigured()) {
     return {
       success: false,
       plan: "free",
@@ -54,21 +52,15 @@ export async function getMyBillingStatusAction(): Promise<{
       };
     }
 
-    const [row] = await db
-      .select({
-        plan: users.plan,
-        subscriptionStatus: users.subscriptionStatus,
-        periodEnd: users.subscriptionCurrentPeriodEnd,
-      })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
+    const row = await getUserById(session.userId);
 
     return {
       success: true,
       plan: row?.plan || "free",
       subscriptionStatus: row?.subscriptionStatus || "none",
-      periodEnd: row?.periodEnd ? row.periodEnd.toISOString() : null,
+      periodEnd: row?.subscriptionCurrentPeriodEnd
+        ? row.subscriptionCurrentPeriodEnd.toISOString()
+        : null,
       razorpayConfigured,
     };
   } catch (e: any) {
@@ -114,22 +106,16 @@ export async function createSubscriptionCheckoutAction(
       return { success: false, error: "Sign in required" };
     }
 
-    await syncClerkUserAction();
-    const clerkUser = await currentUser();
-    const email =
-      clerkUser?.primaryEmailAddress?.emailAddress ||
-      clerkUser?.emailAddresses?.[0]?.emailAddress;
+    await syncAppwriteUserAction();
+    const appUser = await currentUser();
+    const email = appUser?.email;
     if (!email) {
       return { success: false, error: "Account email required for billing" };
     }
 
-    const name =
-      [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ||
-      clerkUser?.username ||
-      email.split("@")[0] ||
-      "User";
+    const name = appUser?.name || email.split("@")[0] || "User";
 
-    if (!db) {
+    if (!isDbConfigured()) {
       return { success: false, error: "Database not configured" };
     }
 
@@ -139,20 +125,9 @@ export async function createSubscriptionCheckoutAction(
       return { success: false, error: "Razorpay client unavailable" };
     }
 
-    const [existing] = await db
-      .select({
-        razorpayCustomerId: users.razorpayCustomerId,
-        subscriptionStatus: users.subscriptionStatus,
-        plan: users.plan,
-      })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
+    const existing = await getUserById(session.userId);
 
-    if (
-      existing?.subscriptionStatus === "active" &&
-      existing.plan === planId
-    ) {
+    if (existing?.subscriptionStatus === "active" && existing.plan === planId) {
       return { success: false, error: "You already have this plan active." };
     }
 
@@ -166,19 +141,13 @@ export async function createSubscriptionCheckoutAction(
         },
       });
       customerId = customer.id;
-      await db
-        .update(users)
-        .set({
-          razorpayCustomerId: customerId,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, session.userId));
+      await updateUser(session.userId, { razorpayCustomerId: customerId });
     }
 
     const plan = BILLING_PLANS[planId];
     const subscription = await razorpay.subscriptions.create({
       plan_id: razorpayPlanId,
-      total_count: 120, // ~10 years of monthly cycles; cancel anytime
+      total_count: 120,
       customer_notify: 1,
       notes: {
         userId: session.userId,
@@ -187,16 +156,12 @@ export async function createSubscriptionCheckoutAction(
       },
     });
 
-    await db
-      .update(users)
-      .set({
-        plan: planId,
-        subscriptionStatus: "created",
-        razorpaySubscriptionId: subscription.id,
-        razorpayCustomerId: customerId,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, session.userId));
+    await updateUser(session.userId, {
+      plan: planId,
+      subscriptionStatus: "created",
+      razorpaySubscriptionId: subscription.id,
+      razorpayCustomerId: customerId,
+    });
 
     return {
       success: true,

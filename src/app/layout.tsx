@@ -34,8 +34,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
   return (
     <html
       lang="en"
@@ -46,7 +44,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased font-sans">
-        <Providers clerkPublishableKey={clerkKey}>{children}</Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

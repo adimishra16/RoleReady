@@ -25,7 +25,7 @@ export default function ResumeBuilderPage({
   const resolvedParams = use(params);
   const resumeId = resolvedParams.resumeId;
 
-  // Blank shell — localStorage / Neon content loads via useResumeStore
+  // Blank shell — localStorage / Appwrite content loads via useResumeStore
   const initialResume = createBlankResume({ id: resumeId });
 
   const {

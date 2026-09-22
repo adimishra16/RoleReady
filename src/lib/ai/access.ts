@@ -1,18 +1,28 @@
-import { auth } from "@clerk/nextjs/server";
-import { eq, sql } from "drizzle-orm";
-import { db, isDbConfigured } from "@/db";
-import { appSettings, users } from "@/db/schema";
+import {
+  ensureAppUserLinked,
+  getAppSetting,
+  getUserById,
+  isDbConfigured,
+  updateUser,
+  type AppUser,
+} from "@/lib/appwrite/db";
+import { auth, currentUser } from "@/lib/appwrite/auth";
 import type { AiAccessStatus, AiFeature } from "@/lib/ai/access-types";
 
 export type { AiAccessStatus, AiFeature } from "@/lib/ai/access-types";
 
 const DEFAULT_REWRITE_LIMIT = Number(process.env.AI_REWRITE_DEFAULT_LIMIT || 15);
 const DEFAULT_OTHER_LIMIT = Number(process.env.AI_OTHER_DEFAULT_LIMIT || 10);
+/** Soft “unlimited” display for admins (never decremented). */
+const ADMIN_UNLIMITED = 999_999;
 
-function emptyStatus(partial: Partial<AiAccessStatus> & Pick<AiAccessStatus, "enabled" | "reason">): AiAccessStatus {
+function emptyStatus(
+  partial: Partial<AiAccessStatus> & Pick<AiAccessStatus, "enabled" | "reason">
+): AiAccessStatus {
   return {
     globallyEnabled: false,
     authenticated: false,
+    isAdmin: false,
     userId: null,
     rewrite: { used: 0, limit: DEFAULT_REWRITE_LIMIT, remaining: 0 },
     other: { used: 0, limit: DEFAULT_OTHER_LIMIT, remaining: 0 },
@@ -25,26 +35,19 @@ async function resolveUserId(): Promise<string | null> {
     const session = await auth();
     if (session.userId) return session.userId;
   } catch {
-    // Clerk not configured / middleware missing
+    // Auth not configured
   }
   return null;
 }
 
 async function isGloballyEnabled(): Promise<boolean> {
-  if (!db) return false;
-  const [row] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.key, "ai_globally_enabled"))
-    .limit(1);
-
-  // Missing row defaults to OFF — you must enable in Neon
-  if (!row) return false;
-  return row.value === "true" || row.value === "1";
+  const value = await getAppSetting("ai_globally_enabled");
+  if (!value) return false;
+  return value === "true" || value === "1";
 }
 
 export async function getAiAccessStatus(): Promise<AiAccessStatus> {
-  if (!isDbConfigured || !db) {
+  if (!isDbConfigured()) {
     return emptyStatus({ enabled: false, reason: "db_missing" });
   }
 
@@ -60,9 +63,24 @@ export async function getAiAccessStatus(): Promise<AiAccessStatus> {
     });
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const user = await getUserById(userId);
 
   if (!user) {
+    // Try email re-link once (migrated rows → Appwrite Auth id)
+    try {
+      const appUser = await currentUser();
+      if (appUser?.email) {
+        const linked = await ensureAppUserLinked({
+          authUserId: userId,
+          email: appUser.email,
+          name: appUser.name,
+        });
+        return getAiAccessStatusForUser(linked, globallyEnabled);
+      }
+    } catch {
+      // fall through
+    }
+
     return emptyStatus({
       enabled: false,
       globallyEnabled,
@@ -70,6 +88,37 @@ export async function getAiAccessStatus(): Promise<AiAccessStatus> {
       userId,
       reason: "user_missing",
     });
+  }
+
+  return getAiAccessStatusForUser(user, globallyEnabled);
+}
+
+function getAiAccessStatusForUser(
+  user: AppUser,
+  globallyEnabled: boolean
+): AiAccessStatus {
+
+  const isAdmin = user.role === "admin";
+  const userId = user.id;
+
+  if (isAdmin) {
+    return {
+      enabled: true,
+      globallyEnabled,
+      authenticated: true,
+      isAdmin: true,
+      userId,
+      rewrite: {
+        used: user.aiRewriteUsed ?? 0,
+        limit: ADMIN_UNLIMITED,
+        remaining: ADMIN_UNLIMITED,
+      },
+      other: {
+        used: user.aiOtherUsed ?? 0,
+        limit: ADMIN_UNLIMITED,
+        remaining: ADMIN_UNLIMITED,
+      },
+    };
   }
 
   const rewriteLimit = user.aiRewriteLimit ?? DEFAULT_REWRITE_LIMIT;
@@ -93,6 +142,7 @@ export async function getAiAccessStatus(): Promise<AiAccessStatus> {
       enabled: false,
       globallyEnabled,
       authenticated: true,
+      isAdmin: false,
       userId,
       reason: "globally_disabled",
       rewrite,
@@ -105,6 +155,7 @@ export async function getAiAccessStatus(): Promise<AiAccessStatus> {
       enabled: false,
       globallyEnabled,
       authenticated: true,
+      isAdmin: false,
       userId,
       reason: "user_disabled",
       rewrite,
@@ -116,6 +167,7 @@ export async function getAiAccessStatus(): Promise<AiAccessStatus> {
     enabled: true,
     globallyEnabled,
     authenticated: true,
+    isAdmin: false,
     userId,
     rewrite,
     other,
@@ -174,6 +226,7 @@ export function aiDeniedResponse(status: AiAccessStatus, feature: AiFeature): Re
       error: message,
       code,
       reason: status.reason,
+      isAdmin: status.isAdmin,
       rewrite: status.rewrite,
       other: status.other,
     }),
@@ -182,16 +235,21 @@ export function aiDeniedResponse(status: AiAccessStatus, feature: AiFeature): Re
 }
 
 /**
- * Call before spending tokens. Returns null + Response if blocked.
- * On success, increments the matching usage counter in Neon.
+ * Call before spending tokens. Returns Response if blocked.
+ * Admins never consume quota.
  */
 export async function consumeAiAccess(
   feature: AiFeature
 ): Promise<{ ok: true; status: AiAccessStatus } | { ok: false; response: Response }> {
   const status = await getAiAccessStatus();
 
-  if (!status.enabled || !status.userId || !db) {
+  if (!status.enabled || !status.userId || !isDbConfigured()) {
     return { ok: false, response: aiDeniedResponse(status, feature) };
+  }
+
+  // Admin: unlimited — do not decrement counters
+  if (status.isAdmin) {
+    return { ok: true, status };
   }
 
   const bucket = featureBucket(feature);
@@ -203,21 +261,13 @@ export async function consumeAiAccess(
   }
 
   if (bucket === "rewrite") {
-    await db
-      .update(users)
-      .set({
-        aiRewriteUsed: sql`${users.aiRewriteUsed} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, status.userId));
+    await updateUser(status.userId, {
+      aiRewriteUsed: status.rewrite.used + 1,
+    });
   } else {
-    await db
-      .update(users)
-      .set({
-        aiOtherUsed: sql`${users.aiOtherUsed} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, status.userId));
+    await updateUser(status.userId, {
+      aiOtherUsed: status.other.used + 1,
+    });
   }
 
   const next =

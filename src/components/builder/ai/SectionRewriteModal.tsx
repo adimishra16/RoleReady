@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { appendAiDataStreamText, stripAiStreamArtifacts } from "@/lib/ai/parse-data-stream";
 import { parseBulletVariations } from "@/lib/ai/parse-bullet-variations";
 import { aiLockMessage, readAiError, useAiAccess } from "@/lib/hooks/useAiAccess";
+import { AiCreditsStrip } from "@/components/ai/AiCreditsStrip";
 
 export type RewriteSectionType =
   | "job_title"
@@ -118,9 +119,13 @@ export function SectionRewriteModal({
         accumulated = appendAiDataStreamText(accumulated, chunk);
         setStreamedText(stripAiStreamArtifacts(accumulated));
       }
+      if (!stripAiStreamArtifacts(accumulated).trim()) {
+        throw new Error("No rewrite suggestions were generated. Check NEBIUS_API_KEY and restart the server.");
+      }
       void refreshAiStatus();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An error occurred while rewriting.";
+      setStreamedText("");
       setError(message);
       void refreshAiStatus();
     } finally {
@@ -158,21 +163,7 @@ export function SectionRewriteModal({
       </DialogHeader>
 
       <div className="space-y-4 my-2">
-        {aiStatus && (
-          <div className="flex items-center justify-between gap-2 text-[11px] rounded-lg border bg-muted/30 px-3 py-2">
-            <span className="text-muted-foreground">
-              Rewrites left:{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {aiStatus.rewrite.remaining}/{aiStatus.rewrite.limit}
-              </span>
-            </span>
-            {aiLocked && (
-              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <Lock className="h-3 w-3" /> Locked
-              </span>
-            )}
-          </div>
-        )}
+        {aiStatus && <AiCreditsStrip status={aiStatus} bucket="rewrite" locked={aiLocked} />}
 
         {lockMessage && (
           <div className="p-3 text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200">

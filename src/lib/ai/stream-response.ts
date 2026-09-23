@@ -43,9 +43,11 @@ export function mockDataStreamResponse(text: string): Response {
 type StreamOpts = {
   system: string;
   prompt: string;
-  /** Used when no provider key is configured. */
+  /** Used when no provider key is configured, or the model output misses the steer. */
   fallbackText: string;
   model?: LanguageModel | null;
+  /** When set, model text that fails this check is replaced with fallbackText. */
+  acceptText?: (text: string) => boolean;
 };
 
 /**
@@ -65,7 +67,9 @@ export async function streamModelOrMock(opts: StreamOpts): Promise<Response> {
       prompt: opts.prompt,
     });
     const text = result.text?.trim();
-    if (!text) return mockDataStreamResponse(opts.fallbackText);
+    if (!text || (opts.acceptText && !opts.acceptText(text))) {
+      return mockDataStreamResponse(opts.fallbackText);
+    }
     return mockDataStreamResponse(text);
   } catch (error) {
     console.error("AI provider failed, using fallback:", formatAiProviderError(error));

@@ -20,6 +20,7 @@ Guidelines:
 - Emphasize business impact, leadership, and scalable problem-solving.
 - Avoid clichés (like "hardworking team player"). Write with confident, modern executive authority.
 - If steer instructions are provided (e.g. more concise, more detail, AI/ML focused, DevOps focused), follow them closely while staying truthful to the resume.
+- If the user asks to quantify, or writes anything like "quantify a bit", the summary MUST contain exactly 2 concrete metrics inside the sentences (a percent, a count, a timeframe, or a scale such as users or revenue). "A bit" means only those 2 numbers — not a list of statistics and not a summary with zero numbers.
 - Output ONLY the polished summary text.`,
 
   jobMatcher: `You are an ATS (Applicant Tracking System) and hiring manager intelligence simulator.

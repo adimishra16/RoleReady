@@ -14,6 +14,10 @@ function normalizeKeywords(raw: unknown): string[] {
     .slice(0, 8);
 }
 
+function wantsQuantify(keywords: string[]): boolean {
+  return keywords.some((k) => /quantif|metric|number|percent|%/i.test(k));
+}
+
 function buildFallbackSummary(title: string, keywords: string[]): string {
   const focus = keywords
     .filter((k) => /focused|AI|ML|DevOps|Full-stack|Leadership|Product|cloud|fintech/i.test(k))
@@ -25,6 +29,19 @@ function buildFallbackSummary(title: string, keywords: string[]): string {
 
   const concise = keywords.some((k) => /concise/i.test(k));
   const detail = keywords.some((k) => /detail/i.test(k));
+  const quantify = wantsQuantify(keywords);
+
+  if (quantify && concise) {
+    return `Results-driven ${title}${focusClause} who cut delivery time by 28% while shipping features used by 40k+ people.`;
+  }
+
+  if (quantify && detail) {
+    return `Results-oriented ${title}${focusClause} who designs and ships production systems end to end. Improved release speed by 28% and supported products used by 40k+ people, pairing that scale with clearer architecture, fewer production incidents, and closer partnership with product and design.`;
+  }
+
+  if (quantify) {
+    return `Results-oriented ${title}${focusClause} who designs and ships reliable product experiences. Improved delivery speed by 28% and built features used by 40k+ people, with a focus on practical architecture and measurable outcomes.`;
+  }
 
   if (concise) {
     return `Results-driven ${title}${focusClause}. Delivers scalable products, strong engineering craft, and measurable business impact.`;
@@ -56,9 +73,14 @@ export async function POST(req: Request) {
     const title = jobTitle || "Software Engineer";
     const keywords = normalizeKeywords(rawKeywords);
 
+    const quantify = wantsQuantify(keywords);
     const steerBlock =
       keywords.length > 0
-        ? `\nSteer instructions (apply all that apply):\n${keywords.map((k) => `- ${k}`).join("\n")}\n`
+        ? `\nSteer instructions (apply all that apply, literally):\n${keywords.map((k) => `- ${k}`).join("\n")}\n${
+            quantify
+              ? "\nRequired: write exactly 2 concrete metrics into the sentences (one percentage and one scale, such as users or timeframe). Do not return a summary that contains no numbers.\n"
+              : ""
+          }`
         : "";
 
     const prompt = `Target Job Title: ${jobTitle || "Professional"}
@@ -72,6 +94,7 @@ Generate a high-impact, professional executive summary${keywords.length ? " that
       system: SYSTEM_PROMPTS.summaryGenerator,
       prompt,
       fallbackText: buildFallbackSummary(title, keywords),
+      acceptText: quantify ? (text) => /\d/.test(text) : undefined,
     });
   } catch (error) {
     console.error("Summary Generator Error:", error);

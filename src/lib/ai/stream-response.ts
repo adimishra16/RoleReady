@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 import { getAiModel } from "@/lib/ai/provider";
 
@@ -6,10 +6,10 @@ import { getAiModel } from "@/lib/ai/provider";
 export function formatAiProviderError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? "");
   if (/401|unauthorized|authenticate|invalid.*api.?key|incorrect api key/i.test(msg)) {
-    return "AI provider authentication failed. Update NEBIUS_API_KEY in .env.local (from tokenfactory.nebius.com) and restart npm run dev.";
+    return "AI provider authentication failed. Update NEBIUS_API_KEY (tokenfactory.nebius.com) and redeploy.";
   }
-  if (/404|model.?not.?found|does not exist/i.test(msg)) {
-    return "AI model not found. Check NEBIUS_MODEL in .env.local against your Nebius model list.";
+  if (/404|not found|model.?not.?found|does not exist/i.test(msg)) {
+    return "AI model was not found. Set NEBIUS_MODEL to a model id from your Nebius console, then redeploy.";
   }
   if (/429|rate.?limit/i.test(msg)) {
     return "AI provider rate limit hit. Wait a moment and try again.";
@@ -49,22 +49,26 @@ type StreamOpts = {
 };
 
 /**
- * Stream from Nebius/OpenAI/Google when configured; otherwise mock.
- * Provider errors are written as data-stream error frames (`3:`) so the UI can show them.
+ * Generate from Nebius/OpenAI/Google when configured; otherwise the local fallback.
+ * A missing model or auth failure still returns fallback text so the UI is not left on "Not Found".
  */
-export function streamModelOrMock(opts: StreamOpts): Response {
+export async function streamModelOrMock(opts: StreamOpts): Promise<Response> {
   const model = opts.model === undefined ? getAiModel() : opts.model;
   if (!model) {
     return mockDataStreamResponse(opts.fallbackText);
   }
 
-  const result = streamText({
-    model,
-    system: opts.system,
-    prompt: opts.prompt,
-  });
-
-  return result.toDataStreamResponse({
-    getErrorMessage: formatAiProviderError,
-  });
+  try {
+    const result = await generateText({
+      model,
+      system: opts.system,
+      prompt: opts.prompt,
+    });
+    const text = result.text?.trim();
+    if (!text) return mockDataStreamResponse(opts.fallbackText);
+    return mockDataStreamResponse(text);
+  } catch (error) {
+    console.error("AI provider failed, using fallback:", formatAiProviderError(error));
+    return mockDataStreamResponse(opts.fallbackText);
+  }
 }
